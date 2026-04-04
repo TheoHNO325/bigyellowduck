@@ -1,0 +1,7 @@
+.DS_Store
+Thumbs.db
+db.json
+public/
+.deploy*/
+node_modules/
+_multiverse/
