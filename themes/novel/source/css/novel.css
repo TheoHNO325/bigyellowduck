@@ -360,6 +360,96 @@ a:hover {
   color: var(--novel-muted);
 }
 
+.novel-post__meta--waizhuan {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 1rem;
+}
+
+.novel-post__author {
+  font-size: 0.9rem;
+  color: var(--novel-muted);
+}
+
+/* 外传聚合页 */
+.novel-waizhuan-intro {
+  margin-bottom: 2rem;
+}
+
+.novel-waizhuan-intro__title {
+  font-family: var(--novel-font-serif);
+  font-size: clamp(1.5rem, 4vw, 1.9rem);
+  margin: 0 0 0.75rem;
+}
+
+.novel-waizhuan-intro__body {
+  color: var(--novel-text);
+  line-height: var(--novel-line);
+}
+
+.novel-waizhuan-intro__body p:last-child {
+  margin-bottom: 0;
+}
+
+.novel-waizhuan-empty {
+  color: var(--novel-muted);
+  margin: 0 0 2rem;
+  padding: 1.25rem 1.35rem;
+  border-radius: var(--novel-radius);
+  border: 1px dashed var(--novel-border);
+  background: color-mix(in srgb, var(--novel-surface) 65%, transparent);
+}
+
+.novel-waizhuan-board {
+  margin: 0 0 2.75rem;
+}
+
+.novel-waizhuan-board:last-of-type {
+  margin-bottom: 1rem;
+}
+
+.novel-waizhuan-board__title {
+  font-family: var(--novel-font-sans);
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0 0 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--novel-border);
+  color: var(--novel-text);
+}
+
+.novel-waizhuan-board__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.novel-waizhuan-card__title {
+  margin: 0 0 0.35rem;
+  font-size: 1.08rem;
+  font-weight: 600;
+}
+
+.novel-waizhuan-card__author {
+  margin: 0 0 0.35rem;
+  font-size: 0.82rem;
+  color: var(--novel-muted);
+}
+
+.novel-waizhuan-card .novel-card__time {
+  display: block;
+  margin-bottom: 0.15rem;
+}
+
+.novel-waizhuan-card__excerpt {
+  margin: 0.5rem 0 0;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--novel-muted);
+}
+
 .novel-post__content {
   font-family: var(--novel-font-serif);
   font-size: var(--novel-p);
@@ -515,6 +605,15 @@ a:hover {
 }
 .novel-chapter-bar__spacer {
   min-height: 1px;
+}
+
+.novel-chapter-bar--waizhuan {
+  grid-template-columns: 1fr;
+  justify-items: center;
+}
+
+.novel-chapter-bar--waizhuan .novel-chapter-bar__toc {
+  grid-column: 1;
 }
 
 /* 读至文中时底部浮层：下一章 */

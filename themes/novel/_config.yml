@@ -41,7 +41,13 @@ footer_line: ''
 # 最后一章滚到底时的彩蛋短句（HTML 不可用，换行可用 \n 或在 md 里改主题配置多行 YAML）
 finale_line: '《当大黄鸭被发现在四大发明广场》至此告一段落。感谢你的阅读。'
 
+# 外传：聚合页路径与标签名（文章须带此标签且勿带 series_tag，以免进入正传目录）
+waizhuan_tag: '外传'
+waizhuan_url: /waizhuan/
+waizhuan_series_title: '大黄鸭 · 外传'
+
 # 主导航：「目录」= 平铺连载列表；归档页 /archives 仍可由 Hexo 生成（按年月汇总），需要时在浏览器打开即可
 menu:
   封面: /
   目录: /read/
+  外传: /waizhuan/
