@@ -8,6 +8,7 @@
 2. **板块**：在 front matter 中设置 `waizhuan_section`，例如 `日常向`、`严肃向`。**相同字符串**的稿件会在列表页归为同一板块；不写则归入「未分板块」。
 3. **署名**：可选 `author_display: 笔名`，会显示在列表卡片与文末。
 4. **正文**：在 Markdown 中正常撰写即可。若希望外传列表卡片显示摘要，可在文中插入 `<!-- more -->`，其上方内容为摘要；也可在 front matter 中设置 `excerpt:`。
+5. **文件名（推荐）**：外传稿请使用 `0x01-你的slug.md`、`0x02-…` 形式（两位序号顺排，可与 Hexo 默认生成的日期前缀脱钩）；**勿**在文件名里混用正传章节所用的 `NN-dahuangya` 模式。
 
 ## 用脚手架新建（推荐）
 
@@ -17,7 +18,7 @@
 npx hexo new waizhuan "你的外传标题"
 ```
 
-会在 `source/_posts/` 下生成带默认 front matter 的文件，按需修改 `waizhuan_section`、`author_display` 与正文后提交。
+会在 `source/_posts/` 下生成带默认 front matter 的文件，按需修改 `waizhuan_section`、`author_display` 与正文后提交。若生成的文件名带日期前缀，可改为 `0xNN-简称.md` 以与站内涵例一致。
 
 ## 或手动复制
 

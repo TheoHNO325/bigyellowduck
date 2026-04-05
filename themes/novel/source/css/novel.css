@@ -1046,11 +1046,19 @@ body.novel-body--home {
   pointer-events: none;
 }
 
-.novel-hero__cta {
+.novel-hero__top-actions {
   position: absolute;
   top: 1.35rem;
   right: 1.35rem;
   z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  max-width: min(22rem, calc(100vw - 2.7rem));
+}
+
+.novel-hero__cta {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1064,7 +1072,8 @@ body.novel-body--home {
   background: rgba(255, 255, 255, 0.92);
   border: 1px solid rgba(255, 255, 255, 0.4);
   box-shadow: 0 6px 28px rgba(0, 0, 0, 0.22);
-  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .novel-hero__cta:hover {
@@ -1072,6 +1081,20 @@ body.novel-body--home {
   background: #ffffff;
   box-shadow: 0 10px 32px rgba(0, 0, 0, 0.28);
   color: #1a1a1a;
+}
+
+.novel-hero__cta--ghost {
+  color: rgba(255, 255, 255, 0.95);
+  background: rgba(8, 10, 14, 0.38);
+  border-color: rgba(255, 255, 255, 0.32);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
+}
+
+.novel-hero__cta--ghost:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.45);
+  color: #ffffff;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
 }
 
 .novel-hero__center {
@@ -1166,9 +1189,13 @@ body.novel-body--home {
 }
 
 @media (max-width: 480px) {
-  .novel-hero__cta {
+  .novel-hero__top-actions {
     top: 1rem;
     right: 1rem;
+    max-width: calc(100vw - 2rem);
+  }
+
+  .novel-hero__cta {
     padding: 0.5rem 1.1rem;
     font-size: 0.88rem;
   }
