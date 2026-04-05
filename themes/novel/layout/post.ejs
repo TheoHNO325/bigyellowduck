@@ -1,4 +1,6 @@
 <% 
+  var _novelCat = config.index_generator && config.index_generator.path;
+  var novelCatalogPath = (_novelCat && String(_novelCat).length) ? String(_novelCat).replace(/\/$/, '') + '/' : '/';
   var chapters = [];
   site.posts.sort('source', 1).each(function (post) {
     if (theme.series_tag) {
@@ -32,7 +34,7 @@
     <% } else { %>
     <span class="novel-chapter-bar__spacer"></span>
     <% } %>
-    <a class="novel-chapter-bar__toc" href="<%- url_for('/') %>">目录</a>
+    <a class="novel-chapter-bar__toc" href="<%- url_for(novelCatalogPath) %>">目录</a>
     <% if (nextCh) { %>
     <a class="novel-chapter-bar__link novel-chapter-bar__link--next" href="<%- url_for(nextCh.path) %>">
       <span class="novel-chapter-bar__hint">下一章</span>

@@ -1,5 +1,10 @@
 # 小说主题配置（可在站点根目录用 _config.novel.yml 覆盖）
 
+# 封面主页（根路径）背景图，相对站点 source/ 或已生成的 URL
+home_hero_image: /images/dahuangya.jpg
+# 封面显示的作者名（若空则用站点 config.author）
+home_author: HNO3
+
 # 连载标题（显示在章节页顶部）
 series_title: ''
 
@@ -31,5 +36,6 @@ giscus:
   loading: lazy
 
 menu:
-  目录: /
+  封面: /
+  目录: /read/
   归档: /archives

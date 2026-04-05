@@ -8,7 +8,7 @@ subtitle: 小说
 description: 当大黄鸭被发现在四大发明广场 — 原创小说线上阅读
 keywords:
   - 小说
-author: ''
+author: HNO3
 language: zh-CN
 timezone: ''
 
@@ -61,8 +61,9 @@ prismjs:
 # per_page: Posts displayed per page. (0 = disable pagination)
 # order_by: Posts order. (Order by date descending by default)
 # 小说按章：按源文件路径排序（与 _posts 下文件名顺序一致）；per_page 控制首页每页列出几章
+# 连载目录在 /read/；站点根路径为封面主页 source/index.md
 index_generator:
-  path: ''
+  path: read
   per_page: 3
   order_by: source
 

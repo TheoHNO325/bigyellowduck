@@ -5,6 +5,9 @@
   var fullTitle = pageTitle
     ? (pageTitle + ' | ' + config.title)
     : config.title;
+  if (page.layout === 'home') {
+    fullTitle = config.title;
+  }
 %>
 <title><%= fullTitle %></title>
 <% if (config.author) { %>

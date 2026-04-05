@@ -1,13 +1,17 @@
 <!DOCTYPE html>
 <html lang="<%= config.language || 'zh-CN' %>">
 <%- partial('_partial/head') %>
-<body class="novel-body">
+<body class="novel-body<% if (page.layout === 'home') { %> novel-body--home<% } %>">
+  <% if (page.layout !== 'home') { %>
   <div class="novel-read-progress" id="read-progress" aria-hidden="true"></div>
   <%- partial('_partial/header') %>
   <div class="novel-wrap">
     <%- body %>
   </div>
   <%- partial('_partial/footer') %>
+  <% } else { %>
+  <%- body %>
+  <% } %>
   <script src="<%- url_for('/js/novel.js') %>"></script>
 </body>
 </html>

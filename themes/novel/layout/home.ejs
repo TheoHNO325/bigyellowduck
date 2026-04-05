@@ -1,0 +1,15 @@
+<% 
+  var ip = config.index_generator && config.index_generator.path;
+  var catalogPath = (ip && String(ip).length) ? String(ip).replace(/\/$/, '') + '/' : '/';
+  var heroImg = theme.home_hero_image || '/images/dahuangya.jpg';
+  var heroAuthor = (theme.home_author != null && theme.home_author !== '') ? theme.home_author : (config.author || 'HNO3');
+%>
+<main class="novel-hero" role="main" aria-label="封面">
+  <div class="novel-hero__bg" style="background-image: url('<%- url_for(heroImg) %>')"></div>
+  <div class="novel-hero__veil" aria-hidden="true"></div>
+  <a class="novel-hero__cta" href="<%- url_for(catalogPath) %>">开始阅读</a>
+  <div class="novel-hero__center">
+    <h1 class="novel-hero__title"><%= config.title %></h1>
+    <p class="novel-hero__author"><%= heroAuthor %></p>
+  </div>
+</main>

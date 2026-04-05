@@ -467,3 +467,117 @@ a:hover {
 .novel-footer a:hover {
   color: var(--novel-accent);
 }
+
+/* ----- Cover homepage ----- */
+body.novel-body--home {
+  min-height: 100vh;
+  margin: 0;
+  background: #0d0f12;
+}
+
+.novel-hero {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--novel-font-sans);
+}
+
+.novel-hero__bg {
+  position: absolute;
+  inset: 0;
+  background-position: center center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  transform: scale(1.02);
+}
+
+.novel-hero__veil {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(15, 18, 24, 0.45) 0%,
+    rgba(15, 18, 24, 0.12) 38%,
+    rgba(15, 18, 24, 0.28) 100%
+  );
+  pointer-events: none;
+}
+
+.novel-hero__cta {
+  position: absolute;
+  top: 1.35rem;
+  right: 1.35rem;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55rem 1.35rem;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+  color: #1a1a1a;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.22);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.novel-hero__cta:hover {
+  transform: translateY(-1px);
+  background: #ffffff;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.28);
+  color: #1a1a1a;
+}
+
+.novel-hero__center {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: clamp(4.5rem, 14vh, 7.5rem) 1.25rem 3rem;
+}
+
+.novel-hero__title {
+  margin: 0;
+  max-width: 20em;
+  font-family: var(--novel-font-serif);
+  font-size: clamp(1.55rem, 4.2vw, 2.35rem);
+  font-weight: 700;
+  line-height: 1.35;
+  color: #ffffff;
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+.novel-hero__author {
+  margin: 1rem 0 0;
+  font-size: clamp(1rem, 2.4vw, 1.2rem);
+  font-weight: 500;
+  letter-spacing: 0.28em;
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.4);
+}
+
+@media (max-width: 480px) {
+  .novel-hero__cta {
+    top: 1rem;
+    right: 1rem;
+    padding: 0.5rem 1.1rem;
+    font-size: 0.88rem;
+  }
+
+  .novel-hero__center {
+    padding-top: clamp(4rem, 18vw, 5.5rem);
+  }
+
+  .novel-hero__author {
+    letter-spacing: 0.2em;
+  }
+}
