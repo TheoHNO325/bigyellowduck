@@ -9,6 +9,7 @@
 3. **署名**：可选 `author_display: 笔名`，会显示在列表卡片与文末。
 4. **正文**：在 Markdown 中正常撰写即可。若希望外传列表卡片显示摘要，可在文中插入 `<!-- more -->`，其上方内容为摘要；也可在 front matter 中设置 `excerpt:`。
 5. **文件名（推荐）**：外传稿请使用 `0x01-你的slug.md`、`0x02-…` 形式（两位序号顺排，可与 Hexo 默认生成的日期前缀脱钩）；**勿**在文件名里混用正传章节所用的 `NN-dahuangya` 模式。
+6. **文件位置**：稿件必须放在 `source/_posts/` 下（Hexo 的「文章」才能带 `tags` 并被 `/waizhuan/` 聚合）。**不要**把成稿只放在 `source/waizhuan/`（那里只放列表页 `index.md`）；若希望网址也出现在 `/waizhuan/…` 下，可在 front matter 里加一行 `permalink: waizhuan/0xNN-your-slug/`。
 
 ## 用脚手架新建（推荐）
 

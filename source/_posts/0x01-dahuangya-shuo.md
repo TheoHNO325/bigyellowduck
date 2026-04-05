@@ -1,6 +1,7 @@
 ---
 title: 大黄鸭说
 date: 2026-04-04
+permalink: waizhuan/0x01-dahuangya-shuo/
 tags:
   - 小说
   - 外传

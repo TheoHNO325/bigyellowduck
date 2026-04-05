@@ -1,6 +1,8 @@
 ---
 title: {{ title }}
 date: {{ date }}
+# 可选：让成稿 URL 落在 /waizhuan/ 子路径下（slug 与文件名协调即可）
+# permalink: waizhuan/0x02-your-slug/
 tags:
   - 小说
   - 外传
