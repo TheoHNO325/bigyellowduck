@@ -60,11 +60,23 @@ prismjs:
 # path: Root path for your blogs index page. (default = '')
 # per_page: Posts displayed per page. (0 = disable pagination)
 # order_by: Posts order. (Order by date descending by default)
-# 小说按章：日期越早越靠前（第一章在前）；per_page 控制首页每页列出几章
+# 小说按章：按源文件路径排序（与 _posts 下文件名顺序一致）；per_page 控制首页每页列出几章
 index_generator:
   path: ''
   per_page: 3
-  order_by: date
+  order_by: source
+
+archive_generator:
+  per_page: 3
+  order_by: source
+
+category_generator:
+  per_page: 3
+  order_by: source
+
+tag_generator:
+  per_page: 3
+  order_by: source
 
 # Category & Tag
 default_category: uncategorized

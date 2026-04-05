@@ -1,11 +1,10 @@
 # 小说主题覆盖配置（修改后无需动 themes/novel/_config.yml）
 # 开通评论：打开 https://giscus.app/zh-CN ，选择仓库与 Discussion 分类，生成页面后会给出 repo_id、category_id
 giscus:
-  enable: false
-  # enable: true
-  # repo: TheoHNO325/bigyellowduck
-  # repo_id: R_xxxxxxxx  # 从 giscus 网页复制
-  # category_id: DIC_xxxxxxxx
+  enable: true
+  repo: TheoHNO325/bigyellowduck
+  repo_id: R_xxxxxxxx  # 从 giscus 网页复制
+  category_id: DIC_xxxxxxxx
 
 reader:
   content_max_width: 42

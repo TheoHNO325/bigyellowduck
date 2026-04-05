@@ -16,9 +16,9 @@ reader:
 # Giscus（基于 GitHub Discussions 的评论，免费）
 # 在 https://giscus.app/zh-CN 填写仓库并生成脚本后，把 data-repo-id / data-category-id 填到站点根目录的 _config.novel.yml
 giscus:
-  enable: false
+  enable: true
   repo: TheoHNO325/bigyellowduck
-  repo_id: ''
+  repo_id: 'R_kgDOR5ns5A'
   category: 'General'
   category_id: ''
   mapping: pathname

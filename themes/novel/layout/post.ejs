@@ -1,6 +1,6 @@
 <% 
   var chapters = [];
-  site.posts.sort('date', 1).each(function (post) {
+  site.posts.sort('source', 1).each(function (post) {
     if (theme.series_tag) {
       var match = false;
       post.tags.each(function (tag) { if (tag.name === theme.series_tag) match = true; });
@@ -20,7 +20,7 @@
   <header class="novel-post__head">
     <p class="novel-post__series"><%= seriesTitle %></p>
     <h1 class="novel-post__title" itemprop="headline"><%= page.title %></h1>
-    <time class="novel-post__meta" datetime="<%= date_xml(page.date) %>" itemprop="datePublished"><%= date(page.date, 'YYYY-MM-DD') %></time>
+    <time class="novel-post__meta" datetime="<%= post_date_literal(page) %>" itemprop="datePublished"><%= post_date_literal(page) %></time>
   </header>
   <div class="novel-post__content" itemprop="articleBody"><%- page.content %></div>
   <nav class="novel-chapter-bar" aria-label="章节导航">

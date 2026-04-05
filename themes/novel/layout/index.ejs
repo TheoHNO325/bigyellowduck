@@ -7,7 +7,7 @@
     <% page.posts.each(function (post) { %>
     <article class="novel-card">
       <h2 class="novel-card__title"><a href="<%- url_for(post.path) %>"><%= post.title %></a></h2>
-      <time class="novel-card__time" datetime="<%= date_xml(post.date) %>"><%= date(post.date, 'YYYY-MM-DD') %></time>
+      <time class="novel-card__time" datetime="<%= post_date_literal(post) %>"><%= post_date_literal(post) %></time>
       <% if (post.excerpt) { %>
       <div class="novel-card__excerpt"><%- post.excerpt %></div>
       <% } %>
