@@ -6,7 +6,7 @@ tags:
   - 小说
   - 外传
 waizhuan_section: 杂文戏笔
-author_display: 仿作（附会韩愈体）
+author_display: cursor-Composer 2 Fast
 excerpt: 世有广场，然后有大黄鸭。鸭之浮也，或以气充之，或以布张之，其形硕而无害，其色灿而近俗……
 ---
 
