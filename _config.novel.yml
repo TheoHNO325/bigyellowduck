@@ -8,3 +8,9 @@ giscus:
 
 reader:
   content_max_width: 42
+
+# 页脚一句话 / 终章彩蛋（会覆盖 themes/novel/_config.yml 中同名项）
+# footer_line: ''
+# finale_line: |
+#   第一行
+#   第二行

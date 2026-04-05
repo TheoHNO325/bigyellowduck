@@ -300,7 +300,6 @@ a:hover {
 
 .novel-card:hover,
 .novel-card:focus-within {
-  transform: translateY(-2px);
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.1);
   border-color: color-mix(in srgb, var(--novel-accent) 38%, var(--novel-border));
 }
@@ -717,6 +716,192 @@ html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-read-dock__
   color: var(--novel-accent);
 }
 
+.novel-footer__line {
+  display: block;
+  margin: 0.5rem auto 0;
+  max-width: 26em;
+  line-height: 1.5;
+  opacity: 0.92;
+}
+
+/* 主题切换：遮罩闪一下（无 View Transitions 时也有反馈） */
+.novel-theme-flash {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  pointer-events: none;
+  background: var(--novel-bg);
+  opacity: 0;
+  transition: opacity 0.28s ease;
+}
+
+.novel-theme-flash.is-active {
+  opacity: 0.22;
+  transition: opacity 0.12s ease;
+}
+
+/* 章节页：主标题滚出视口后顶栏下显示当前章名 */
+.novel-chapter-rail {
+  position: sticky;
+  top: 52px;
+  z-index: 45;
+  max-height: 0;
+  margin: 0;
+  padding: 0 0.85rem;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: var(--novel-radius);
+  background: transparent;
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+  visibility: hidden;
+  transition: max-height 0.28s ease, opacity 0.25s ease, transform 0.25s ease,
+    padding 0.28s ease, margin 0.28s ease, visibility 0.25s, background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.novel-chapter-rail.is-visible {
+  max-height: 4.5rem;
+  margin: 0 0 0.75rem;
+  padding: 0.4rem 0.85rem;
+  background: color-mix(in srgb, var(--novel-surface) 94%, transparent);
+  border-color: var(--novel-border);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+  visibility: visible;
+}
+
+.novel-chapter-rail__text {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--novel-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-chapter-rail.is-visible {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-chapter-rail__text {
+  color: #1a1a1a;
+}
+
+/* 「鸭」联动：浮动吉祥物 */
+.novel-duck-mascot {
+  position: fixed;
+  right: 1rem;
+  bottom: 1.15rem;
+  z-index: 48;
+  width: 3rem;
+  height: 3rem;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.65rem;
+  line-height: 1;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.15);
+  opacity: 0;
+  transform: scale(0.35) translateY(12px);
+  pointer-events: none;
+  visibility: hidden;
+  transition: opacity 0.3s ease, transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0.3s;
+}
+
+.novel-duck-mascot.is-visible {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+  pointer-events: auto;
+  visibility: visible;
+}
+
+.novel-duck-mascot:active {
+  transform: scale(0.94);
+}
+
+.novel-duck-mascot.is-wiggle .novel-duck-mascot__ico {
+  display: inline-block;
+  animation: novelDuckWiggle 0.65s ease;
+}
+
+@keyframes novelDuckWiggle {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-14deg) scale(1.08);
+  }
+  50% {
+    transform: rotate(12deg) scale(1.05);
+  }
+  75% {
+    transform: rotate(-8deg);
+  }
+}
+
+/* 终章彩蛋 */
+.novel-finale {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 47;
+  display: flex;
+  justify-content: center;
+  padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom, 0));
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(110%);
+  transition: opacity 0.45s ease, transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.novel-finale.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.novel-finale__panel {
+  max-width: 22rem;
+  padding: 1rem 1.2rem;
+  border-radius: var(--novel-radius);
+  background: color-mix(in srgb, var(--novel-surface) 96%, var(--novel-accent));
+  border: 1px solid color-mix(in srgb, var(--novel-accent) 35%, var(--novel-border));
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+}
+
+.novel-finale__text {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.65;
+  text-align: center;
+  color: var(--novel-text);
+  white-space: pre-line;
+}
+
+html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-finale__panel {
+  background: rgba(255, 255, 255, 0.92);
+  color: #1a1a1a;
+  border-color: rgba(244, 196, 48, 0.55);
+}
+
+html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-finale__text {
+  color: #1a1a1a;
+}
+
 /* ----- Cover homepage ----- */
 body.novel-body--home {
   min-height: 100vh;
@@ -742,6 +927,12 @@ body.novel-body--home {
   background-repeat: no-repeat;
   transform: scale(1.02);
   animation: novelHeroKenBurns 28s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+.novel-hero__bg.is-parallax {
+  animation: none;
+  transform: scale(1.09) translate(var(--hero-pan-x, 0), var(--hero-pan-y, 0));
 }
 
 .novel-hero__veil {
@@ -893,8 +1084,26 @@ body.novel-body--home {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .novel-theme-flash {
+    display: none;
+  }
+
+  .novel-chapter-rail,
+  .novel-finale,
+  .novel-duck-mascot {
+    transition: none !important;
+  }
+
+  .novel-duck-mascot.is-wiggle .novel-duck-mascot__ico {
+    animation: none;
+  }
+
   .novel-hero__bg {
     animation: none;
+  }
+
+  .novel-hero__bg.is-parallax {
+    transform: scale(1.02);
   }
 
   .novel-hero__title {
@@ -925,5 +1134,12 @@ body.novel-body--home {
 
   .novel-read-dock {
     transition: transform 0.12s linear, opacity 0.12s linear;
+  }
+}
+
+@supports (view-transition-name: none) {
+  html.novel-supports-vt::view-transition-old(root),
+  html.novel-supports-vt::view-transition-new(root) {
+    animation-duration: 0.32s;
   }
 }

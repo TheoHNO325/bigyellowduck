@@ -18,8 +18,11 @@
   var prevCh = chapterIdx > 0 ? chapters[chapterIdx - 1] : null;
   var nextCh = chapterIdx >= 0 && chapterIdx < chapters.length - 1 ? chapters[chapterIdx + 1] : null;
 %>
+<nav class="novel-chapter-rail" id="novel-chapter-rail" aria-label="当前章节">
+  <span class="novel-chapter-rail__text"><%= page.title %></span>
+</nav>
 <article class="novel-post novel-main" itemscope itemtype="https://schema.org/Article">
-  <header class="novel-post__head">
+  <header class="novel-post__head" id="novel-post-head">
     <p class="novel-post__series"><%= seriesTitle %></p>
     <h1 class="novel-post__title" itemprop="headline"><%= page.title %></h1>
     <time class="novel-post__meta" datetime="<%= post_date_literal(page) %>" itemprop="datePublished"><%= post_date_literal(page) %></time>
@@ -54,4 +57,10 @@
     <span class="novel-read-dock__title"><%= nextCh.title %></span>
   </a>
 </aside>
+<% } else if (theme.finale_line) { %>
+<div class="novel-finale" id="novel-finale" role="status" aria-live="polite" hidden>
+  <div class="novel-finale__panel">
+    <p class="novel-finale__text"><%= theme.finale_line %></p>
+  </div>
+</div>
 <% } %>

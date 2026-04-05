@@ -1,6 +1,7 @@
 <footer class="novel-footer">
   <p>
     <% if (config.title) { %><span class="novel-footer__title"><%= config.title %></span><% } %>
+    <% if (theme.footer_line) { %><span class="novel-footer__line"><%= theme.footer_line %></span><% } %>
     <% if (theme.footer_extra) { %><span class="novel-footer__extra"><%- theme.footer_extra %></span><% } %>
   </p>
   <p class="novel-footer__hexo">

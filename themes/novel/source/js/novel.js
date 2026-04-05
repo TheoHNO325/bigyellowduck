@@ -6,8 +6,15 @@
   var KEY_FONT = 'novel-font-step';
   var KEY_DUCK = 'novel-duck-bg';
   var MODES = ['light', 'sepia', 'dark'];
+  var prefersReduced =
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  function setMode(m) {
+  function clamp(n, a, b) {
+    return Math.max(a, Math.min(b, n));
+  }
+
+  function applyMode(m) {
     if (MODES.indexOf(m) === -1) m = 'sepia';
     root.setAttribute('data-read-mode', m);
     try {
@@ -15,12 +22,31 @@
     } catch (e) {}
   }
 
+  function themeFlash() {
+    var flash = document.getElementById('novel-theme-flash');
+    if (!flash || prefersReduced) return;
+    flash.classList.add('is-active');
+    clearTimeout(flash._novelT);
+    flash._novelT = setTimeout(function () {
+      flash.classList.remove('is-active');
+    }, 340);
+  }
+
+  function setMode(m) {
+    if (MODES.indexOf(m) === -1) m = 'sepia';
+    var run = function () {
+      applyMode(m);
+      themeFlash();
+    };
+    if (typeof document.startViewTransition === 'function' && !prefersReduced) {
+      document.startViewTransition(run);
+    } else {
+      run();
+    }
+  }
+
   var fontStep = parseInt(localStorage.getItem(KEY_FONT) || '0', 10);
   if (isNaN(fontStep)) fontStep = 0;
-
-  function clamp(n, a, b) {
-    return Math.max(a, Math.min(b, n));
-  }
 
   function applyFont() {
     fontStep = clamp(fontStep, -2, 4);
@@ -42,6 +68,7 @@
       localStorage.setItem(KEY_DUCK, on ? '1' : '0');
     } catch (e) {}
     syncDuckButton();
+    syncDuckMascot();
   }
 
   function syncDuckButton() {
@@ -52,10 +79,39 @@
     btn.setAttribute('aria-pressed', on ? 'true' : 'false');
   }
 
+  function syncDuckMascot() {
+    var el = document.getElementById('novel-duck-mascot');
+    if (!el) return;
+    var on = root.hasAttribute('data-duck-bg') && !body.classList.contains('novel-body--home');
+    el.classList.toggle('is-visible', on);
+    el.setAttribute('aria-hidden', on ? 'false' : 'true');
+  }
+
+  function ensureDuckMascot() {
+    if (body.classList.contains('novel-body--home')) return null;
+    var el = document.getElementById('novel-duck-mascot');
+    if (el) return el;
+    el = document.createElement('button');
+    el.type = 'button';
+    el.id = 'novel-duck-mascot';
+    el.className = 'novel-duck-mascot';
+    el.setAttribute('aria-label', '大黄鸭');
+    el.setAttribute('aria-hidden', 'true');
+    el.innerHTML =
+      '<span class="novel-duck-mascot__ico" aria-hidden="true">\uD83E\uDD86</span>';
+    el.addEventListener('click', function () {
+      el.classList.remove('is-wiggle');
+      void el.offsetWidth;
+      el.classList.add('is-wiggle');
+    });
+    body.appendChild(el);
+    return el;
+  }
+
   try {
-    setMode(localStorage.getItem(KEY_MODE) || 'sepia');
+    applyMode(localStorage.getItem(KEY_MODE) || 'sepia');
   } catch (e) {
-    setMode('sepia');
+    applyMode('sepia');
   }
   applyFont();
 
@@ -65,6 +121,7 @@
         root.setAttribute('data-duck-bg', '1');
       }
     } catch (e) {}
+    ensureDuckMascot();
   }
 
   document.querySelectorAll('[data-read-mode]').forEach(function (btn) {
@@ -86,6 +143,7 @@
     });
   }
   syncDuckButton();
+  syncDuckMascot();
 
   function updateProgress() {
     if (!bar) return;
@@ -113,10 +171,116 @@
   function onScroll() {
     updateProgress();
     updateReadNextDock();
+    updateFinale();
+  }
+
+  function initHeroParallax() {
+    if (prefersReduced) return;
+    var hero = document.querySelector('.novel-hero');
+    var bg = document.querySelector('.novel-hero__bg');
+    if (!hero || !bg) return;
+    var t;
+    hero.addEventListener('mousemove', function (e) {
+      clearTimeout(t);
+      var r = hero.getBoundingClientRect();
+      var px = ((e.clientX - r.left) / r.width - 0.5) * 2;
+      var py = ((e.clientY - r.top) / r.height - 0.5) * 2;
+      bg.classList.add('is-parallax');
+      bg.style.setProperty('--hero-pan-x', px * -20 + 'px');
+      bg.style.setProperty('--hero-pan-y', py * -16 + 'px');
+    });
+    hero.addEventListener('mouseleave', function () {
+      t = setTimeout(function () {
+        bg.classList.remove('is-parallax');
+        bg.style.removeProperty('--hero-pan-x');
+        bg.style.removeProperty('--hero-pan-y');
+      }, 100);
+    });
+  }
+
+  function initMagneticCards() {
+    if (prefersReduced) return;
+    document.querySelectorAll('.novel-index__list .novel-card').forEach(function (card) {
+      card.addEventListener('mousemove', function (e) {
+        var r = card.getBoundingClientRect();
+        var cx = r.left + r.width * 0.5;
+        var cy = r.top + r.height * 0.5;
+        var dx = (e.clientX - cx) / (r.width * 0.5);
+        var dy = (e.clientY - cy) / (r.height * 0.5);
+        var mx = clamp(dx * 8, -8, 8);
+        var my = clamp(dy * 7, -7, 7) - 2;
+        card.style.transform = 'translate(' + mx + 'px,' + my + 'px)';
+      });
+      card.addEventListener('mouseleave', function () {
+        card.style.transform = '';
+      });
+    });
+  }
+
+  function initChapterRail() {
+    var rail = document.getElementById('novel-chapter-rail');
+    var head = document.getElementById('novel-post-head');
+    if (!rail || !head || typeof IntersectionObserver === 'undefined') return;
+    var io = new IntersectionObserver(
+      function (entries) {
+        entries.forEach(function (en) {
+          rail.classList.toggle('is-visible', !en.isIntersecting);
+        });
+      },
+      { root: null, rootMargin: '-52px 0px 0px 0px', threshold: 0 }
+    );
+    io.observe(head);
+  }
+
+  function updateFinale() {
+    var el = document.getElementById('novel-finale');
+    if (!el || el.classList.contains('is-done')) return;
+    var art = document.querySelector('article.novel-post');
+    if (!art) return;
+    var key = 'novel-finale-shown:' + location.pathname;
+    try {
+      if (sessionStorage.getItem(key)) {
+        el.removeAttribute('hidden');
+        requestAnimationFrame(function () {
+          el.classList.add('is-visible');
+        });
+        el.classList.add('is-done');
+        return;
+      }
+    } catch (e) {}
+    var top = art.offsetTop;
+    var h = art.offsetHeight;
+    var vy = window.scrollY + window.innerHeight;
+    var ratio = h > 0 ? (vy - top) / h : 0;
+    if (ratio > 0.9) {
+      el.removeAttribute('hidden');
+      requestAnimationFrame(function () {
+        el.classList.add('is-visible');
+      });
+      el.classList.add('is-done');
+      try {
+        sessionStorage.setItem(key, '1');
+      } catch (e2) {}
+    }
+  }
+
+  function initFinale() {
+    var el = document.getElementById('novel-finale');
+    if (!el) return;
+    updateFinale();
   }
 
   window.addEventListener('scroll', onScroll, { passive: true });
   window.addEventListener('resize', onScroll);
   updateProgress();
   updateReadNextDock();
+
+  initHeroParallax();
+  initMagneticCards();
+  initChapterRail();
+  initFinale();
+
+  if (typeof document.startViewTransition === 'function') {
+    root.classList.add('novel-supports-vt');
+  }
 })();
