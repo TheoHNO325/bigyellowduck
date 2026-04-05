@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="<%= config.language || 'zh-CN' %>">
+<%- partial('_partial/head') %>
+<body class="novel-body">
+  <div class="novel-read-progress" id="read-progress" aria-hidden="true"></div>
+  <%- partial('_partial/header') %>
+  <div class="novel-wrap">
+    <%- body %>
+  </div>
+  <%- partial('_partial/footer') %>
+  <script src="<%- url_for('/js/novel.js') %>"></script>
+</body>
+</html>

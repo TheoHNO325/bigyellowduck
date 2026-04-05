@@ -1,0 +1,32 @@
+<% 
+  var gc = theme.giscus || {};
+  var giscus_on = gc.enable && gc.repo_id && gc.category_id;
+%>
+<% if (giscus_on) { %>
+<section class="novel-comments" aria-label="评论与反馈">
+  <h2 class="novel-comments__title">读者反馈</h2>
+  <p class="novel-comments__hint">使用 GitHub 登录后即可发表评论（需仓库已开启 Discussions）。</p>
+  <div class="giscus-wrap">
+    <script src="https://giscus.app/client.js"
+      data-repo="<%= gc.repo %>"
+      data-repo-id="<%= gc.repo_id %>"
+      data-category="<%= gc.category %>"
+      data-category-id="<%= gc.category_id %>"
+      data-mapping="<%= gc.mapping || 'pathname' %>"
+      data-strict="<%= gc.strict === undefined ? '0' : gc.strict %>"
+      data-reactions-enabled="<%= gc.reactions_enabled === undefined ? '1' : gc.reactions_enabled %>"
+      data-emit-metadata="<%= gc.emit_metadata === undefined ? '0' : gc.emit_metadata %>"
+      data-input-position="<%= gc.input_position || 'bottom' %>"
+      data-theme="<%= gc.theme || 'dark_dimmed' %>"
+      data-lang="<%= gc.lang || 'zh-CN' %>"
+      data-loading="<%= gc.loading || 'lazy' %>"
+      crossorigin="anonymous"
+      async>
+    </script>
+  </div>
+</section>
+<% } else if (gc.enable) { %>
+<section class="novel-comments novel-comments--disabled" aria-label="评论">
+  <p class="novel-comments__warn">评论未完全配置：请在站点根目录 <code>_config.novel.yml</code> 中填写 Giscus 的 <code>repo_id</code> 与 <code>category_id</code>（见 <a href="https://giscus.app/zh-CN" target="_blank" rel="noopener">giscus.app</a>）。</p>
+</section>
+<% } %>

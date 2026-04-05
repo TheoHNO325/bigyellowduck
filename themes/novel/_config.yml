@@ -1,0 +1,35 @@
+# 小说主题配置（可在站点根目录用 _config.novel.yml 覆盖）
+
+# 连载标题（显示在章节页顶部）
+series_title: ''
+
+# 仅列出带此标签的文章为「章节目录」；留空则包含站点全部文章（按日期升序）
+series_tag: '大黄鸭'
+
+# 阅读器
+reader:
+  # 正文最大宽度 (rem)
+  content_max_width: 40
+  # 是否为首段以外段落加中文缩进
+  indent_paragraphs: true
+
+# Giscus（基于 GitHub Discussions 的评论，免费）
+# 在 https://giscus.app/zh-CN 填写仓库并生成脚本后，把 data-repo-id / data-category-id 填到站点根目录的 _config.novel.yml
+giscus:
+  enable: false
+  repo: TheoHNO325/bigyellowduck
+  repo_id: ''
+  category: 'General'
+  category_id: ''
+  mapping: pathname
+  strict: 0
+  reactions_enabled: 1
+  emit_metadata: 0
+  input_position: bottom
+  theme: dark_dimmed
+  lang: zh-CN
+  loading: lazy
+
+menu:
+  目录: /
+  归档: /archives

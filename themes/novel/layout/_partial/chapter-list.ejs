@@ -1,0 +1,15 @@
+<% if (chapters && chapters.length) { %>
+<section class="novel-toc" aria-labelledby="novel-toc-title">
+  <h2 id="novel-toc-title" class="novel-toc__title">章节目录</h2>
+  <ol class="novel-toc__list">
+    <% chapters.forEach(function (ch, i) { %>
+    <li class="novel-toc__item<%- ch.path === page.path ? ' is-current' : '' %>">
+      <a href="<%- url_for(ch.path) %>">
+        <span class="novel-toc__num"><%= i + 1 %>.</span>
+        <%= ch.title %>
+      </a>
+    </li>
+    <% }); %>
+  </ol>
+</section>
+<% } %>

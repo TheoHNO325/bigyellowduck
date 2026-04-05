@@ -1,0 +1,12 @@
+<section class="novel-archive novel-main">
+  <h1 class="novel-archive__head"><%= page.year ? page.year + ' 年' : '归档' %></h1>
+  <div class="novel-index__list">
+    <% page.posts.each(function (post) { %>
+    <article class="novel-card">
+      <h2 class="novel-card__title"><a href="<%- url_for(post.path) %>"><%= post.title %></a></h2>
+      <time class="novel-card__time" datetime="<%= date_xml(post.date) %>"><%= date(post.date, 'YYYY-MM-DD') %></time>
+    </article>
+    <% }); %>
+  </div>
+  <%- partial('_partial/pagination') %>
+</section>

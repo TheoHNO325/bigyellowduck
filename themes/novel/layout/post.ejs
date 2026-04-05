@@ -1,0 +1,47 @@
+<% 
+  var chapters = [];
+  site.posts.sort('date', 1).each(function (post) {
+    if (theme.series_tag) {
+      var match = false;
+      post.tags.each(function (tag) { if (tag.name === theme.series_tag) match = true; });
+      if (!match) return;
+    }
+    chapters.push(post);
+  });
+  var seriesTitle = theme.series_title || config.title;
+  var chapterIdx = -1;
+  for (var ci = 0; ci < chapters.length; ci++) {
+    if (chapters[ci].path === page.path) { chapterIdx = ci; break; }
+  }
+  var prevCh = chapterIdx > 0 ? chapters[chapterIdx - 1] : null;
+  var nextCh = chapterIdx >= 0 && chapterIdx < chapters.length - 1 ? chapters[chapterIdx + 1] : null;
+%>
+<article class="novel-post novel-main" itemscope itemtype="https://schema.org/Article">
+  <header class="novel-post__head">
+    <p class="novel-post__series"><%= seriesTitle %></p>
+    <h1 class="novel-post__title" itemprop="headline"><%= page.title %></h1>
+    <time class="novel-post__meta" datetime="<%= date_xml(page.date) %>" itemprop="datePublished"><%= date(page.date, 'YYYY-MM-DD') %></time>
+  </header>
+  <div class="novel-post__content" itemprop="articleBody"><%- page.content %></div>
+  <nav class="novel-chapter-bar" aria-label="章节导航">
+    <% if (prevCh) { %>
+    <a class="novel-chapter-bar__link novel-chapter-bar__link--prev" href="<%- url_for(prevCh.path) %>">
+      <span class="novel-chapter-bar__hint">上一章</span>
+      <span class="novel-chapter-bar__label"><%= prevCh.title %></span>
+    </a>
+    <% } else { %>
+    <span class="novel-chapter-bar__spacer"></span>
+    <% } %>
+    <a class="novel-chapter-bar__toc" href="<%- url_for('/') %>">目录</a>
+    <% if (nextCh) { %>
+    <a class="novel-chapter-bar__link novel-chapter-bar__link--next" href="<%- url_for(nextCh.path) %>">
+      <span class="novel-chapter-bar__hint">下一章</span>
+      <span class="novel-chapter-bar__label"><%= nextCh.title %></span>
+    </a>
+    <% } else { %>
+    <span class="novel-chapter-bar__spacer"></span>
+    <% } %>
+  </nav>
+  <%- partial('_partial/chapter-list', { chapters: chapters, page: page }) %>
+  <%- partial('_partial/giscus') %>
+</article>

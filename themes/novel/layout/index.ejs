@@ -1,0 +1,18 @@
+<section class="novel-index novel-main">
+  <h1 class="novel-index__head">连载目录</h1>
+  <% if (config.description) { %>
+  <p class="novel-lead"><%= config.description %></p>
+  <% } %>
+  <div class="novel-index__list">
+    <% page.posts.each(function (post) { %>
+    <article class="novel-card">
+      <h2 class="novel-card__title"><a href="<%- url_for(post.path) %>"><%= post.title %></a></h2>
+      <time class="novel-card__time" datetime="<%= date_xml(post.date) %>"><%= date(post.date, 'YYYY-MM-DD') %></time>
+      <% if (post.excerpt) { %>
+      <div class="novel-card__excerpt"><%- post.excerpt %></div>
+      <% } %>
+    </article>
+    <% }); %>
+  </div>
+  <%- partial('_partial/pagination') %>
+</section>

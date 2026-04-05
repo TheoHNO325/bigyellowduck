@@ -1,0 +1,9 @@
+<footer class="novel-footer">
+  <p>
+    <% if (config.title) { %><span class="novel-footer__title"><%= config.title %></span><% } %>
+    <% if (theme.footer_extra) { %><span class="novel-footer__extra"><%- theme.footer_extra %></span><% } %>
+  </p>
+  <p class="novel-footer__hexo">
+    <span>由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> 生成</span>
+  </p>
+</footer>

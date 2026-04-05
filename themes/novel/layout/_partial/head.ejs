@@ -1,0 +1,21 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<%
+  var pageTitle = page.title;
+  var fullTitle = pageTitle
+    ? (pageTitle + ' | ' + config.title)
+    : config.title;
+%>
+<title><%= fullTitle %></title>
+<% if (config.author) { %>
+<meta name="author" content="<%= config.author %>">
+<% } %>
+<% if (config.description) { %>
+<meta name="description" content="<%= config.description %>">
+<% } %>
+<link rel="stylesheet" href="<%- url_for('/css/novel.css') %>">
+<style>
+  :root {
+    --novel-max-width: <%= (theme.reader && theme.reader.content_max_width) || 40 %>rem;
+  }
+</style>
