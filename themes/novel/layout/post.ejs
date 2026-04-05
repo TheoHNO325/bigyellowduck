@@ -47,3 +47,11 @@
   <%- partial('_partial/chapter-list', { chapters: chapters, page: page }) %>
   <%- partial('_partial/giscus') %>
 </article>
+<% if (nextCh) { %>
+<aside class="novel-read-dock" id="novel-read-dock" aria-label="继续阅读下一章">
+  <a class="novel-read-dock__link" href="<%- url_for(nextCh.path) %>">
+    <span class="novel-read-dock__hint">下一章</span>
+    <span class="novel-read-dock__title"><%= nextCh.title %></span>
+  </a>
+</aside>
+<% } %>

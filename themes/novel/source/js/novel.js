@@ -96,7 +96,27 @@
     bar.style.transform = 'scaleX(' + clamp(p, 0, 1) + ')';
   }
 
-  window.addEventListener('scroll', updateProgress, { passive: true });
-  window.addEventListener('resize', updateProgress);
+  function updateReadNextDock() {
+    var dock = document.getElementById('novel-read-dock');
+    var content = document.querySelector('.novel-post__content');
+    if (!dock || !content) return;
+    var len = content.offsetHeight;
+    if (len <= 0) return;
+    var vh = window.innerHeight;
+    var crect = content.getBoundingClientRect();
+    var top = crect.top + window.scrollY;
+    var rel = (window.scrollY + vh * 0.52 - top) / len;
+    var show = rel > 0.46 && rel < 0.9;
+    dock.classList.toggle('is-visible', show);
+  }
+
+  function onScroll() {
+    updateProgress();
+    updateReadNextDock();
+  }
+
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll);
   updateProgress();
+  updateReadNextDock();
 })();
