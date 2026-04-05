@@ -59,6 +59,92 @@ body.novel-body {
   transition: background 0.2s ease, color 0.2s ease;
 }
 
+/* 大黄鸭阅读背景：仅非封面页；与亮/护/黑配色独立 */
+html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) {
+  background-color: transparent;
+}
+
+html[data-duck-bg="1"] body.novel-body:not(.novel-body--home)::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image: var(--novel-duck-bg-image);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+
+html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-header,
+html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-wrap,
+html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-footer {
+  position: relative;
+  z-index: 1;
+}
+
+/* 阅读主栏半透明白底（透明度 0.7）；版面内统一深色字以保证在暗色主题下仍可读 */
+html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-main {
+  background: rgba(255, 255, 255, 0.7);
+  padding: 1.35rem 1.4rem 1.5rem;
+  border-radius: var(--novel-radius);
+  box-shadow: 0 6px 32px rgba(0, 0, 0, 0.12);
+  color: #1a1a1a;
+}
+
+html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-main a {
+  color: #1856c9;
+}
+
+html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-main a:hover {
+  color: #0d3d92;
+}
+
+html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-main .novel-muted,
+html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-lead,
+html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-card__time {
+  color: #555555;
+}
+
+html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-main .novel-card {
+  background: rgba(255, 255, 255, 0.65);
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-main .novel-card__title a {
+  color: #1a1a1a;
+}
+
+html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-main .novel-post__series,
+html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-main .novel-post__meta {
+  color: #555555;
+}
+
+html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-main .novel-toc,
+html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-main .novel-chapter-bar__link,
+html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-main .novel-chapter-bar__toc {
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-main .novel-chapter-bar__link,
+html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-main .novel-chapter-bar__toc {
+  background: rgba(255, 255, 255, 0.75);
+  color: #1a1a1a;
+}
+
+html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-main .novel-pagination .page-number,
+html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-main .novel-pagination .extend {
+  background: rgba(255, 255, 255, 0.75);
+  border-color: rgba(0, 0, 0, 0.12);
+  color: #1a1a1a;
+}
+
+.novel-tool--duck.is-on {
+  border-color: #f4c430;
+  color: #b8860b;
+  background: rgba(255, 220, 100, 0.28);
+}
+
 a {
   color: var(--novel-accent);
   text-decoration-thickness: 1px;

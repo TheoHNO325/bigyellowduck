@@ -35,7 +35,7 @@ giscus:
   lang: zh-CN
   loading: lazy
 
+# 主导航：「目录」= 平铺连载列表；归档页 /archives 仍可由 Hexo 生成（按年月汇总），需要时在浏览器打开即可
 menu:
   封面: /
   目录: /read/
-  归档: /archives

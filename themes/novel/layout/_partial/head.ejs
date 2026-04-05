@@ -20,5 +20,6 @@
 <style>
   :root {
     --novel-max-width: <%= (theme.reader && theme.reader.content_max_width) || 40 %>rem;
+    --novel-duck-bg-image: url('<%- url_for(theme.home_hero_image || "/images/dahuangya.jpg") %>');
   }
 </style>

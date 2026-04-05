@@ -1,8 +1,10 @@
 (function () {
   var root = document.documentElement;
+  var body = document.body;
   var bar = document.getElementById('read-progress');
   var KEY_MODE = 'novel-read-mode';
   var KEY_FONT = 'novel-font-step';
+  var KEY_DUCK = 'novel-duck-bg';
   var MODES = ['light', 'sepia', 'dark'];
 
   function setMode(m) {
@@ -28,12 +30,42 @@
     } catch (e) {}
   }
 
+  function setDuck(on) {
+    var isHome = body.classList.contains('novel-body--home');
+    if (isHome) return;
+    if (on) {
+      root.setAttribute('data-duck-bg', '1');
+    } else {
+      root.removeAttribute('data-duck-bg');
+    }
+    try {
+      localStorage.setItem(KEY_DUCK, on ? '1' : '0');
+    } catch (e) {}
+    syncDuckButton();
+  }
+
+  function syncDuckButton() {
+    var btn = document.querySelector('[data-duck-toggle]');
+    if (!btn) return;
+    var on = root.hasAttribute('data-duck-bg');
+    btn.classList.toggle('is-on', on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+
   try {
     setMode(localStorage.getItem(KEY_MODE) || 'sepia');
   } catch (e) {
     setMode('sepia');
   }
   applyFont();
+
+  if (!body.classList.contains('novel-body--home')) {
+    try {
+      if (localStorage.getItem(KEY_DUCK) === '1') {
+        root.setAttribute('data-duck-bg', '1');
+      }
+    } catch (e) {}
+  }
 
   document.querySelectorAll('[data-read-mode]').forEach(function (btn) {
     btn.addEventListener('click', function () {
@@ -46,6 +78,14 @@
       applyFont();
     });
   });
+
+  var duckBtn = document.querySelector('[data-duck-toggle]');
+  if (duckBtn) {
+    duckBtn.addEventListener('click', function () {
+      setDuck(!root.hasAttribute('data-duck-bg'));
+    });
+  }
+  syncDuckButton();
 
   function updateProgress() {
     if (!bar) return;
