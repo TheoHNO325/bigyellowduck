@@ -1262,10 +1262,3 @@ body.novel-body--home {
     transition: transform 0.12s linear, opacity 0.12s linear;
   }
 }
-
-@supports (view-transition-name: none) {
-  html.novel-supports-vt::view-transition-old(root),
-  html.novel-supports-vt::view-transition-new(root) {
-    animation-duration: 0.32s;
-  }
-}

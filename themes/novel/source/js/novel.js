@@ -1,4 +1,7 @@
 (function () {
+  if (window.__novelThemeInit) return;
+  window.__novelThemeInit = true;
+
   var root = document.documentElement;
   var body = document.body;
   var bar = document.getElementById('read-progress');
@@ -15,6 +18,7 @@
   }
 
   function applyMode(m) {
+    m = String(m || '').trim();
     if (MODES.indexOf(m) === -1) m = 'sepia';
     root.setAttribute('data-read-mode', m);
     try {
@@ -33,16 +37,10 @@
   }
 
   function setMode(m) {
-    if (MODES.indexOf(m) === -1) m = 'sepia';
-    var run = function () {
-      applyMode(m);
-      themeFlash();
-    };
-    if (typeof document.startViewTransition === 'function' && !prefersReduced) {
-      document.startViewTransition(run);
-    } else {
-      run();
-    }
+    /* 不靠 View Transition：其 updateCallback 在部分浏览器/并发点击时可能不执行，导致永远不 applyMode，一直卡在「护」 */
+    setDuck(false);
+    applyMode(m);
+    themeFlash();
   }
 
   var fontStep = parseInt(localStorage.getItem(KEY_FONT) || '0', 10);
@@ -124,22 +122,32 @@
     ensureDuckMascot();
   }
 
-  document.querySelectorAll('[data-read-mode]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      setMode(btn.getAttribute('data-read-mode'));
-    });
-  });
-  document.querySelectorAll('[data-font]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      fontStep += parseInt(btn.getAttribute('data-font'), 10) || 0;
-      applyFont();
-    });
-  });
+  function toolbarButtonFromEvent(e) {
+    var t = e.target;
+    var el = t && t.nodeType === 1 ? t : t && t.parentElement;
+    return el ? el.closest('button') : null;
+  }
 
-  var duckBtn = document.querySelector('[data-duck-toggle]');
-  if (duckBtn) {
-    duckBtn.addEventListener('click', function () {
-      setDuck(!root.hasAttribute('data-duck-bg'));
+  var tools = document.querySelector('.novel-tools');
+  if (tools) {
+    tools.addEventListener('click', function (e) {
+      var btn = toolbarButtonFromEvent(e);
+      if (!btn || !tools.contains(btn)) return;
+      if (btn.hasAttribute('data-read-mode')) {
+        e.preventDefault();
+        setMode(btn.getAttribute('data-read-mode'));
+        return;
+      }
+      if (btn.hasAttribute('data-duck-toggle')) {
+        e.preventDefault();
+        setDuck(!root.hasAttribute('data-duck-bg'));
+        return;
+      }
+      if (btn.hasAttribute('data-font')) {
+        e.preventDefault();
+        fontStep += parseInt(btn.getAttribute('data-font'), 10) || 0;
+        applyFont();
+      }
     });
   }
   syncDuckButton();
@@ -279,8 +287,4 @@
   initMagneticCards();
   initChapterRail();
   initFinale();
-
-  if (typeof document.startViewTransition === 'function') {
-    root.classList.add('novel-supports-vt');
-  }
 })();
