@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>大黄鸭与SD3.5 | 当大黄鸭被发现在四大发明广场</title>
+
+<meta name="author" content="HNO3">
+
+
+<meta name="description" content="当大黄鸭被发现在四大发明广场 — 原创小说线上阅读">
+
+<link rel="stylesheet" href="/bigyellowduck/css/novel.css">
+<style>
+  :root {
+    --novel-max-width: 42rem;
+    --novel-duck-bg-image: url('/bigyellowduck/images/dahuangya.jpg');
+  }
+</style>
+
+<body class="novel-body">
+  
+  <div class="novel-read-progress" id="read-progress" aria-hidden="true"></div>
+  <header class="novel-header">
+  <div class="novel-header__inner">
+    <a class="novel-brand" href="/bigyellowduck/">当大黄鸭被发现在四大发明广场</a>
+    
+    <nav class="novel-nav" aria-label="站点">
+      
+      <a href="/bigyellowduck/">封面</a>
+      
+      <a href="/bigyellowduck/read/">目录</a>
+      
+      <a href="/bigyellowduck/waizhuan/">外传</a>
+      
+    </nav>
+    
+    <div class="novel-tools" role="toolbar" aria-label="阅读设置">
+      <button type="button" class="novel-tool" data-read-mode="light" title="亮色">亮</button>
+      <button type="button" class="novel-tool" data-read-mode="sepia" title="护眼">护</button>
+      <button type="button" class="novel-tool" data-read-mode="dark" title="暗色">暗</button>
+      <button type="button" class="novel-tool novel-tool--duck" data-duck-toggle title="大黄鸭背景">鸭</button>
+      <span class="novel-tools__sep" aria-hidden="true">|</span>
+      <button type="button" class="novel-tool" data-font="-1" title="减小字号">A−</button>
+      <button type="button" class="novel-tool" data-font="1" title="增大字号">A+</button>
+    </div>
+  </div>
+</header>
+
+  <div class="novel-wrap">
+    
+
+<nav class="novel-chapter-rail" id="novel-chapter-rail" aria-label="当前文章">
+  <span class="novel-chapter-rail__text">大黄鸭与SD3.5</span>
+</nav>
+<article class="novel-post novel-post--waizhuan novel-main" itemscope itemtype="https://schema.org/Article">
+  <header class="novel-post__head" id="novel-post-head">
+    <p class="novel-post__series">大黄鸭 · 外传</p>
+    <h1 class="novel-post__title" itemprop="headline">大黄鸭与SD3.5</h1>
+    <p class="novel-post__meta novel-post__meta--waizhuan">
+      <time datetime="2026-04-09" itemprop="datePublished">2026-04-09</time>
+      
+      <span class="novel-post__author" itemprop="author">文 / deepseek-专家模式</span>
+      
+    </p>
+  </header>
+  <div class="novel-post__content" itemprop="articleBody"><h1 id="序言：一只大黄鸭的诞生"><a href="#序言：一只大黄鸭的诞生" class="headerlink" title="序言：一只大黄鸭的诞生"></a>序言：一只大黄鸭的诞生</h1><p>想象你站在一片浓雾弥漫的湖边。起初，你只能看见一团模糊的黄色光晕，轮廓混沌，几乎与雾气融为一体——这便是扩散模型采样起点处的纯噪声。</p>
+<p>你拿出一个神奇的“去雾镜”，轻轻转动旋钮。第一次转动，雾气消散了一点点，那团黄色开始有了大致的椭圆形状。你继续转动，每转一次，雾气便退去一层：扁扁的嘴巴、圆圆的脑袋、黑色的眼睛……细节逐渐浮现。</p>
+<p>经过数十次耐心的“去雾”操作，一只憨态可掬的大黄鸭终于清晰地浮现在水面上。你手中这面镜子的旋钮，就是扩散模型中的采样器；每一次转动，便是一次迭代步进；而镜片上不断清晰的影像，正是模型从噪声中一步步还原出的潜变量图像。</p>
+<p>本文将带你拆解这面“去雾镜”的内部构造——从 ODE 的数学原理，到 Euler 与 DPM++ 2M 采样器的代码实现，让你亲眼见证大黄鸭（或是任何你想要的图像）是如何从一团混沌中“显影”而出的。</p>
+<h1 id="从噪声到图像：扩散模型采样原理与代码精读"><a href="#从噪声到图像：扩散模型采样原理与代码精读" class="headerlink" title="从噪声到图像：扩散模型采样原理与代码精读"></a>从噪声到图像：扩散模型采样原理与代码精读</h1><blockquote>
+<p>一份给扩散模型初学者的工程与理论结合笔记，基于 SD3.5 代码的深度拆解。</p>
+</blockquote>
+<hr>
+<h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>刚开始接触扩散模型（Diffusion Models）时，很容易被满屏的数学公式、复杂的采样器名称（Euler、DPM++ 2M）以及代码中诡异的 <code>sigma</code>、<code>denoised</code>、<code>to_d</code> 搞得晕头转向。本文是我在阅读 Stable Diffusion 3.5 核心推理代码时整理的学习笔记，旨在从<strong>工程实现</strong>出发，回溯其背后的<strong>数学直觉</strong>，帮助和我一样的科研新手建立起从原理到代码的桥梁。</p>
+<hr>
+<h2 id="1-扩散模型概览：从“加噪-去噪”到图像生成"><a href="#1-扩散模型概览：从“加噪-去噪”到图像生成" class="headerlink" title="1. 扩散模型概览：从“加噪-去噪”到图像生成"></a>1. 扩散模型概览：从“加噪-去噪”到图像生成</h2><p>扩散模型的基本思想非常朴素：通过对真实图像逐步添加噪声，将其破坏为纯噪声，再训练一个神经网络学习逆向过程——从噪声中逐步恢复出原始图像。这个“逆向去噪”的过程，就是生成新图像的关键。</p>
+<h3 id="1-1-前向扩散：给图像加噪声"><a href="#1-1-前向扩散：给图像加噪声" class="headerlink" title="1.1 前向扩散：给图像加噪声"></a>1.1 前向扩散：给图像加噪声</h3><p>假设有一张干净的潜变量图像 (x_0)。在 <strong>Rectified Flow</strong> 框架下（SD3.5 所采用），我们通过一个连续噪声水平参数 (\sigma \in [0,1]) 来控制加噪程度：</p>
+<p>[<br>x_\sigma &#x3D; (1 - \sigma) \cdot x_0 + \sigma \cdot \epsilon<br>]</p>
+<p>其中 (\epsilon \sim \mathcal{N}(0, I)) 是标准高斯噪声。当 (\sigma &#x3D; 0) 时，(x_\sigma &#x3D; x_0)（完全干净）；当 (\sigma &#x3D; 1) 时，(x_\sigma &#x3D; \epsilon)（纯噪声）。</p>
+<h3 id="1-2-训练目标：预测速度场"><a href="#1-2-训练目标：预测速度场" class="headerlink" title="1.2 训练目标：预测速度场"></a>1.2 训练目标：预测速度场</h3><p>神经网络 (v_\theta) 的任务是：给定任意噪声水平下的图像 (x_\sigma) 和对应的 (\sigma)，预测出从噪声指向干净图像的速度场（Velocity Field）(v)：</p>
+<p>[<br>v(x_\sigma, \sigma) \approx \epsilon - x_0<br>]</p>
+<p>损失函数采用均方误差（MSE）：</p>
+<p>[<br>\mathcal{L}(\theta) &#x3D; \mathbb{E}_{x_0,\epsilon,\sigma} \left[ | v_\theta(x_\sigma, \sigma) - (\epsilon - x_0) |^2 \right]<br>]</p>
+<p>训练时，(\sigma) 从区间 ([0,1]) 中<strong>随机采样</strong>，这使得模型能够学习处理任意噪声水平的图像，为后续灵活采样奠定基础。</p>
+<h3 id="1-3-逆向采样：从噪声中恢复图像"><a href="#1-3-逆向采样：从噪声中恢复图像" class="headerlink" title="1.3 逆向采样：从噪声中恢复图像"></a>1.3 逆向采样：从噪声中恢复图像</h3><p>训练完成后，我们得到了一个能够预测速度场的模型。生成新图像时，我们从纯噪声 (x_{\sigma&#x3D;1}) 出发，沿着一条特定的轨迹逐步降低 (\sigma)，最终抵达 (x_{\sigma&#x3D;0})。这条轨迹由<strong>常微分方程（ODE）</strong> 描述，而如何高效、准确地求解该 ODE，就是各种采样器的核心任务。</p>
+<hr>
+<h2 id="2-从随机到确定：概率流-ODE-的推导"><a href="#2-从随机到确定：概率流-ODE-的推导" class="headerlink" title="2. 从随机到确定：概率流 ODE 的推导"></a>2. 从随机到确定：概率流 ODE 的推导</h2><p>扩散模型的逆向过程本质上是一个<strong>随机微分方程（SDE）</strong>。2021 年，宋飏（Yang Song）等人在论文 <em>“Score-Based Generative Modeling through Stochastic Differential Equations”</em> 中证明：对于任意扩散 SDE，存在一个与之边缘概率分布演化完全相同的<strong>确定性常微分方程（ODE）</strong>，称为<strong>概率流 ODE（Probability Flow ODE）</strong>。</p>
+<p>在 Rectified Flow 框架下，该 ODE 的形式非常简单：</p>
+<p>[<br>\frac{dx}{d\sigma} &#x3D; \frac{x - \hat{x}_0(x, \sigma)}{\sigma}<br>]</p>
+<p>其中 (\hat{x}_0(x, \sigma)) 是模型对干净图像的预测，在代码中通常记为 <code>denoised</code>。</p>
+<p><strong>直观理解</strong>：想象山顶滚落的随机轨迹构成一朵“概率云”，虽然单次滚落路径随机，但云团中心的移动方向是确定的。PF-ODE 描述的就是这个中心沿时间演化的确定性规律。逆向采样就是沿着这条轨迹逆流而上，从噪声的“云团”中心回到清晰图像的“点”。</p>
+<hr>
+<h2 id="3-从-ODE-到代码：两个核心采样器的推导与实现"><a href="#3-从-ODE-到代码：两个核心采样器的推导与实现" class="headerlink" title="3. 从 ODE 到代码：两个核心采样器的推导与实现"></a>3. 从 ODE 到代码：两个核心采样器的推导与实现</h2><p>有了 ODE 之后，问题转化为：<strong>如何数值求解这个微分方程？</strong> 不同的数值方法对应不同的采样器。以下我们推导并解读代码中的两种经典方法。</p>
+<h3 id="3-1-基础函数-to-d：ODE-右端项的计算"><a href="#3-1-基础函数-to-d：ODE-右端项的计算" class="headerlink" title="3.1 基础函数 to_d：ODE 右端项的计算"></a>3.1 基础函数 <code>to_d</code>：ODE 右端项的计算</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">to_d</span>(<span class="params">x, sigma, denoised</span>):</span><br><span class="line">    <span class="keyword">return</span> (x - denoised) / append_dims(sigma, x.ndim)</span><br></pre></td></tr></table></figure>
+
+<p>它直接计算了 ODE 的右端项，即导数 (\frac{dx}{d\sigma} &#x3D; \frac{x - \hat{x}_0}{\sigma})。在代码中，<code>denoised</code> 正是模型输出的 (\hat{x}_0)。</p>
+<hr>
+<h3 id="3-2-Euler-采样器：一阶线性近似"><a href="#3-2-Euler-采样器：一阶线性近似" class="headerlink" title="3.2 Euler 采样器：一阶线性近似"></a>3.2 Euler 采样器：一阶线性近似</h3><p>Euler 法是最简单的 ODE 求解方法。其核心思想是：<strong>将连续轨迹离散化为小步长，每一步内假设导数不变，用直线代替曲线</strong>。</p>
+<h4 id="数学推导"><a href="#数学推导" class="headerlink" title="数学推导"></a>数学推导</h4><p>将 ODE (\frac{dx}{d\sigma} &#x3D; f(x, \sigma)) 在 (\sigma_i) 处进行一阶泰勒展开：</p>
+<p>[<br>x(\sigma_{i+1}) \approx x(\sigma_i) + (\sigma_{i+1} - \sigma_i) \cdot \frac{dx}{d\sigma}\bigg|_{\sigma_i}<br>]</p>
+<p>代入 (f(x, \sigma) &#x3D; \frac{x - \hat{x}_0(x, \sigma)}{\sigma})，得到 Euler 更新公式：</p>
+<p>[<br>x_{i+1} &#x3D; x_i + (\sigma_{i+1} - \sigma_i) \cdot \frac{x_i - \hat{x}_0(x_i, \sigma_i)}{\sigma_i}<br>]</p>
+<h4 id="代码实现"><a href="#代码实现" class="headerlink" title="代码实现"></a>代码实现</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@torch.no_grad()</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">sample_euler</span>(<span class="params">model, x, sigmas, extra_args=<span class="literal">None</span></span>):</span><br><span class="line">    s_in = x.new_ones([x.shape[<span class="number">0</span>]])</span><br><span class="line">    <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(<span class="built_in">len</span>(sigmas) - <span class="number">1</span>):</span><br><span class="line">        sigma_hat = sigmas[i]</span><br><span class="line">        denoised = model(x, sigma_hat * s_in, **extra_args)   <span class="comment"># 预测 \hat&#123;x&#125;_0</span></span><br><span class="line">        d = to_d(x, sigma_hat, denoised)                      <span class="comment"># 计算导数</span></span><br><span class="line">        dt = sigmas[i + <span class="number">1</span>] - sigma_hat                        <span class="comment"># 步长（负值，因为 sigma 递减）</span></span><br><span class="line">        x = x + d * dt                                        <span class="comment"># Euler 更新</span></span><br><span class="line">    <span class="keyword">return</span> x</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><strong>优点</strong>：实现极其简单，数值行为稳定。</li>
+<li><strong>缺点</strong>：一阶精度，在轨迹弯曲处误差较大，通常需要 50~100 步才能收敛。</li>
+</ul>
+<hr>
+<h3 id="3-3-DPM-Solver-2M-：二阶指数积分-历史修正"><a href="#3-3-DPM-Solver-2M-：二阶指数积分-历史修正" class="headerlink" title="3.3 DPM-Solver++(2M)：二阶指数积分 + 历史修正"></a>3.3 DPM-Solver++(2M)：二阶指数积分 + 历史修正</h3><p>Euler 法在步长较大时精度不足，而 DPM-Solver++ 是一类专为扩散模型设计的<strong>高阶专用求解器</strong>。其核心思想包含三步：变量替换化曲为直、精确指数积分、利用历史信息进行二阶修正。</p>
+<h4 id="3-3-1-变量替换：将弯曲轨迹“拉直”"><a href="#3-3-1-变量替换：将弯曲轨迹“拉直”" class="headerlink" title="3.3.1 变量替换：将弯曲轨迹“拉直”"></a>3.3.1 变量替换：将弯曲轨迹“拉直”</h4><p>扩散模型的 ODE 在 (\sigma) 空间中高度弯曲，尤其在 (\sigma \to 0) 附近变化剧烈。DPM-Solver 引入变量替换：</p>
+<p>[<br>t &#x3D; -\ln \sigma, \quad \sigma &#x3D; e^{-t}<br>]</p>
+<p>此时 (t \in [0, +\infty))。利用链式法则，原 ODE 转换为：</p>
+<p>[<br>\frac{dx}{dt} &#x3D; \frac{dx}{d\sigma} \cdot \frac{d\sigma}{dt} &#x3D; \frac{x - \hat{x}_0}{\sigma} \cdot (-\sigma) &#x3D; \hat{x}_0 - x<br>]</p>
+<p>整理为标准线性形式：</p>
+<p>[<br>\frac{dx}{dt} + x &#x3D; \hat{x}_0(x, \sigma(t))<br>]</p>
+<p>这个方程在 (t) 空间中轨迹近似直线，数值求解更稳定。</p>
+<h4 id="3-3-2-精确指数积分"><a href="#3-3-2-精确指数积分" class="headerlink" title="3.3.2 精确指数积分"></a>3.3.2 精确指数积分</h4><p>假设在小区间 ([t, t+h]) 内，(\hat{x}_0) 近似为常数 (D)（即模型预测的 <code>denoised</code>），则上述一阶线性 ODE 存在<strong>精确解析解</strong>：</p>
+<p>[<br>x(t+h) &#x3D; e^{-h} x(t) + (1 - e^{-h}) D<br>]</p>
+<p>这是一个<strong>指数积分</strong>公式，其精度远高于 Euler 法的线性外推。在代码中，用 <code>sigma_fn(t) = e^&#123;-t&#125;</code> 及 <code>expm1</code> 函数实现：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">(sigma_fn(t_next) / sigma_fn(t)) * x - (-h).expm1() * denoised</span><br></pre></td></tr></table></figure>
+
+<p>其中 <code>sigma_fn(t_next) / sigma_fn(t) = e^&#123;-h&#125;</code>，<code>-(-h).expm1() = 1 - e^&#123;-h&#125;</code>。</p>
+<h4 id="3-3-3-二阶修正：利用历史信息提升精度"><a href="#3-3-3-二阶修正：利用历史信息提升精度" class="headerlink" title="3.3.3 二阶修正：利用历史信息提升精度"></a>3.3.3 二阶修正：利用历史信息提升精度</h4><p>上述推导假设了 (\hat{x}_0) 在步长内恒定，这在大步长时仍会引入误差。DPM-Solver++(2M) 通过存储上一步的预测值 <code>old_denoised</code>，对当前步的 (\hat{x}_0) 进行<strong>线性外推</strong>，以获得更准确的二阶修正值 <code>denoised_d</code>。</p>
+<p>假设在 (t) 空间中，(\hat{x}_0(t)) 是局部线性的，可利用前一步信息进行线性插值：</p>
+<p>[<br>\hat{x}_0^{\text{corr}} &#x3D; \left(1 + \frac{1}{2r}\right) \hat{x}_0^{(i)} - \frac{1}{2r} \hat{x}_0^{(i-1)}<br>]</p>
+<p>其中 (r &#x3D; h_{\text{last}} &#x2F; h) 是前后步步长之比。该修正公式使算法整体达到二阶收敛。</p>
+<h4 id="代码实现-1"><a href="#代码实现-1" class="headerlink" title="代码实现"></a>代码实现</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@torch.no_grad()</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">sample_dpmpp_2m</span>(<span class="params">model, x, sigmas, extra_args=<span class="literal">None</span></span>):</span><br><span class="line">    sigma_fn = <span class="keyword">lambda</span> t: t.neg().exp()       <span class="comment"># σ = e^&#123;-t&#125;</span></span><br><span class="line">    t_fn   = <span class="keyword">lambda</span> sigma: sigma.log().neg() <span class="comment"># t = -ln(σ)</span></span><br><span class="line">    old_denoised = <span class="literal">None</span></span><br><span class="line">    <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(<span class="built_in">len</span>(sigmas) - <span class="number">1</span>):</span><br><span class="line">        denoised = model(x, sigmas[i], **extra_args)</span><br><span class="line">        t, t_next = t_fn(sigmas[i]), t_fn(sigmas[i + <span class="number">1</span>])</span><br><span class="line">        h = t_next - t</span><br><span class="line">        <span class="keyword">if</span> old_denoised <span class="keyword">is</span> <span class="literal">None</span> <span class="keyword">or</span> sigmas[i + <span class="number">1</span>] == <span class="number">0</span>:</span><br><span class="line">            <span class="comment"># 第一步或最后一步：使用一阶精确指数解</span></span><br><span class="line">            x = (sigma_fn(t_next) / sigma_fn(t)) * x - (-h).expm1() * denoised</span><br><span class="line">        <span class="keyword">else</span>:</span><br><span class="line">            <span class="comment"># 常规步：利用历史信息进行二阶修正</span></span><br><span class="line">            h_last = t - t_fn(sigmas[i - <span class="number">1</span>])</span><br><span class="line">            r = h_last / h</span><br><span class="line">            denoised_d = (<span class="number">1</span> + <span class="number">1</span>/(<span class="number">2</span>*r)) * denoised - (<span class="number">1</span>/(<span class="number">2</span>*r)) * old_denoised</span><br><span class="line">            x = (sigma_fn(t_next) / sigma_fn(t)) * x - (-h).expm1() * denoised_d</span><br><span class="line">        old_denoised = denoised</span><br><span class="line">    <span class="keyword">return</span> x</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><strong>优点</strong>：二阶精度，只需 15~25 步即可生成高质量图像。</li>
+<li><strong>适用性</strong>：目前最常用的高效采样器之一，被广泛应用于各类扩散模型推理中。</li>
+</ul>
+<hr>
+<h2 id="4-训练与推理中的时间参数辨析"><a href="#4-训练与推理中的时间参数辨析" class="headerlink" title="4. 训练与推理中的时间参数辨析"></a>4. 训练与推理中的时间参数辨析</h2><p>理解扩散模型必须明确“时间”参数在训练和推理阶段的不同含义。</p>
+<table>
+<thead>
+<tr>
+<th align="left">阶段</th>
+<th align="left">参数 <code>sigma</code> 来源</th>
+<th align="left">迭代方式</th>
+<th align="left">目标</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left"><strong>训练</strong></td>
+<td align="left">从 ([0,1]) 中<strong>随机采样</strong></td>
+<td align="left">单次前向计算损失</td>
+<td align="left">学习任意噪声水平下的去噪能力</td>
+</tr>
+<tr>
+<td align="left"><strong>推理</strong></td>
+<td align="left"><strong>预定义的递减序列</strong> <code>sigmas</code></td>
+<td align="left">循环调用模型 + 采样器更新</td>
+<td align="left">沿特定 ODE 轨迹逐步还原图像</td>
+</tr>
+</tbody></table>
+<p>训练时的“一步到位”加噪（不涉及多步迭代）确保了模型对连续噪声水平的泛化能力；推理时的固定步长序列则是为了高效、稳定地求解 ODE。</p>
+<hr>
+<h2 id="5-总结"><a href="#5-总结" class="headerlink" title="5. 总结"></a>5. 总结</h2><ul>
+<li><strong>扩散模型推理 &#x3D; 求解概率流 ODE</strong>：采样器的本质是 ODE 数值求解器。</li>
+<li><strong>Euler 采样器</strong>：一阶方法，简单稳定，但步数需求高。</li>
+<li>**DPM-Solver++(2M)**：通过变量替换、指数积分和历史信息二阶修正，实现大步长下的高精度采样。</li>
+<li><strong><code>sigma</code> 的双重身份</strong>：训练时为连续随机变量，推理时为固定离散序列。</li>
+</ul>
+<p>掌握这些核心概念后，再去阅读完整的 SD3.5 代码（如 <code>BaseModel</code>、<code>MMDiTX</code>、VAE 编解码等），你将能迅速抓住主干逻辑，理解每一行代码背后的数学动机。</p>
+<hr>
+<p><em>本文基于 Stable Diffusion 3.5 公开代码及 Diffusers 库的通用设计撰写，适用于大多数基于 Rectified Flow 的扩散模型。</em></p>
+</div>
+  <nav class="novel-chapter-bar novel-chapter-bar--waizhuan" aria-label="外传导航">
+    <a class="novel-chapter-bar__toc" href="/bigyellowduck/waizhuan/">← 返回外传列表</a>
+  </nav>
+  
+
+<section class="novel-comments" aria-label="评论与反馈">
+  <h2 class="novel-comments__title">读者反馈</h2>
+  <p class="novel-comments__hint">使用 GitHub 登录后即可发表评论（需仓库已开启 Discussions）。</p>
+  <div class="giscus-wrap">
+    <script src="https://giscus.app/client.js"
+      data-repo="TheoHNO325/bigyellowduck"
+      data-repo-id="R_xxxxxxxx"
+      data-category="General"
+      data-category-id="DIC_xxxxxxxx"
+      data-mapping="pathname"
+      data-strict="0"
+      data-reactions-enabled="1"
+      data-emit-metadata="0"
+      data-input-position="bottom"
+      data-theme="dark_dimmed"
+      data-lang="zh-CN"
+      data-loading="lazy"
+      crossorigin="anonymous"
+      async>
+    </script>
+  </div>
+</section>
+
+
+</article>
+
+
+  </div>
+  <footer class="novel-footer">
+  <p>
+    <span class="novel-footer__title">当大黄鸭被发现在四大发明广场</span>
+    
+    
+  </p>
+  <p class="novel-footer__hexo">
+    <span>由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> 生成</span>
+  </p>
+</footer>
+
+  
+  <div class="novel-theme-flash" id="novel-theme-flash" aria-hidden="true"></div>
+  <script src="/bigyellowduck/js/novel.js"></script>
+</body>
+</html>
