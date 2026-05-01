@@ -1,10 +1,20 @@
 # 小说主题覆盖配置（修改后无需动 themes/novel/_config.yml）
-# 开通评论：打开 https://giscus.app/zh-CN ，选择仓库与 Discussion 分类，生成页面后会给出 repo_id、category_id
+# 评论：在 https://giscus.app/zh-CN 选仓库与 Discussion 分类，生成脚本后把 data-category / data-category-id 填到下面（须与 GitHub 里分类名一致）
 giscus:
   enable: true
   repo: TheoHNO325/bigyellowduck
-  repo_id: R_xxxxxxxx  # 从 giscus 网页复制
-  category_id: DIC_xxxxxxxx
+  repo_id: R_kgDOR5ns5A
+  # 下面两项须与 giscus 网页生成脚本中的 data-category、data-category-id 一致（不能只填占位符）
+  category: General
+  category_id: "DIC_kwDOR5ns5M4C6Ftu"
+  mapping: pathname
+  strict: 0
+  reactions_enabled: 1
+  emit_metadata: 0
+  input_position: bottom
+  theme: preferred_color_scheme
+  lang: zh-CN
+  loading: lazy
 
 reader:
   content_max_width: 42

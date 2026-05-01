@@ -60,8 +60,9 @@ prismjs:
 # path: Root path for your blogs index page. (default = '')
 # per_page: Posts displayed per page. (0 = disable pagination)
 # order_by: Posts order. (Order by date descending by default)
-# 小说按章：按源文件路径排序（与 _posts 下文件名顺序一致）
-# 连载目录 /read/：每页展示 10 章；本页列表超出视窗时向下滚动；超过 10 章会在「下一页」继续
+# 小说按章：按源文件路径排序（与 _posts 下文件名一致）
+# 连载目录 /read/：由 scripts/index-series-only.js 只列出带主题 series_tag（大黄鸭）的正传；外传不占此列表
+# per_page：每页条数，超过则 /read/page/2/ …
 index_generator:
   path: read
   per_page: 10
