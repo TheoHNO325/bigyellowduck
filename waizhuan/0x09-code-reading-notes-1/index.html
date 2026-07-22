@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>读代码笔记（1） | 当大黄鸭被发现在四大发明广场</title>
+
+<meta name="author" content="HNO3">
+
+
+<meta name="description" content="当大黄鸭被发现在四大发明广场 — 原创小说线上阅读">
+
+<link rel="stylesheet" href="/bigyellowduck/css/novel.css">
+<style>
+  :root {
+    --novel-max-width: 42rem;
+    --novel-duck-bg-image: url('/bigyellowduck/images/dahuangya.jpg');
+  }
+</style>
+
+<body class="novel-body">
+  
+  <div class="novel-read-progress" id="read-progress" aria-hidden="true"></div>
+  <header class="novel-header">
+  <div class="novel-header__inner">
+    <a class="novel-brand" href="/bigyellowduck/">当大黄鸭被发现在四大发明广场</a>
+    
+    <nav class="novel-nav" aria-label="站点">
+      
+      <a href="/bigyellowduck/">封面</a>
+      
+      <a href="/bigyellowduck/read/">目录</a>
+      
+      <a href="/bigyellowduck/waizhuan/">外传</a>
+      
+    </nav>
+    
+    <div class="novel-tools" role="toolbar" aria-label="阅读设置">
+      <button type="button" class="novel-tool" data-read-mode="light" title="亮色">亮</button>
+      <button type="button" class="novel-tool" data-read-mode="sepia" title="护眼">护</button>
+      <button type="button" class="novel-tool" data-read-mode="dark" title="暗色">暗</button>
+      <button type="button" class="novel-tool novel-tool--duck" data-duck-toggle title="大黄鸭背景">鸭</button>
+      <span class="novel-tools__sep" aria-hidden="true">|</span>
+      <button type="button" class="novel-tool" data-font="-1" title="减小字号">A−</button>
+      <button type="button" class="novel-tool" data-font="1" title="增大字号">A+</button>
+    </div>
+  </div>
+</header>
+
+  <div class="novel-wrap">
+    
+
+<nav class="novel-chapter-rail" id="novel-chapter-rail" aria-label="当前文章">
+  <span class="novel-chapter-rail__text">读代码笔记（1）</span>
+</nav>
+<article class="novel-post novel-post--waizhuan novel-main" itemscope itemtype="https://schema.org/Article">
+  <header class="novel-post__head" id="novel-post-head">
+    <p class="novel-post__series">大黄鸭 · 外传</p>
+    <h1 class="novel-post__title" itemprop="headline">读代码笔记（1）</h1>
+    <p class="novel-post__meta novel-post__meta--waizhuan">
+      <time datetime="2026-07-22" itemprop="datePublished">2026-07-22</time>
+      
+      <span class="novel-post__author" itemprop="author">文 / gpt5.5medium</span>
+      
+    </p>
+  </header>
+  <div class="novel-post__content" itemprop="articleBody"><h1 id="Sparse-Attention-Contribution-and-Code-Notes"><a href="#Sparse-Attention-Contribution-and-Code-Notes" class="headerlink" title="Sparse Attention Contribution and Code Notes"></a>Sparse Attention Contribution and Code Notes</h1><p>如同 Veda 中所总结，现有 sparse mask 的中心任务在于找到合适的 tiling，并对 tiling 后的计算进行选择。<code>tiling + selection</code> 合在一起，就是构建 mask 的过程。整体上可以粗略分为两类：Dynamic 与 Static。</p>
+<p><strong>Dynamic mask</strong> 可能会规定固定的分块形状，但通常会根据 token 间的语义或联系进行更大范围的 tiling，随后动态决定 block 之间是否需要计算。</p>
+<hr>
+<h2 id="1-SVOO"><a href="#1-SVOO" class="headerlink" title="1. SVOO"></a>1. SVOO</h2><h3 id="1-1-推理入口"><a href="#1-1-推理入口" class="headerlink" title="1.1 推理入口"></a>1.1 推理入口</h3><p>推理主函数是 <code>wan_t2v_inference.py</code>。主函数进入 <code>inference.py</code> 的 <code>replace_wan_attention</code>，这里有多种 mode 可选，例如 SAP 或后来更新的 EAR。</p>
+<p>代码会定义 <code>WanAttn_SAPAttn_Processor</code> 实例，并设置上下文长度、frame 数量、SVOO 相关的质心数量、TopK、transformer strategy、<code>min_kc_ratio</code> 等参数。<code>min_kc_ratio</code> 先从 profiling 中得到稀疏度下界，再通过 <code>dynamic_min_kc_ratio_min</code> 和 <code>dynamic_min_kc_ratio_max</code> 把下界裁剪到一个范围里。</p>
+<p>最终，pipeline 中的 transformer block 会被全部替换成 <code>AttnModule</code>。</p>
+<h3 id="1-2-SVG-路线中的-processor-逻辑"><a href="#1-2-SVG-路线中的-processor-逻辑" class="headerlink" title="1.2 SVG 路线中的 processor 逻辑"></a>1.2 SVG 路线中的 processor 逻辑</h3><p><code>WanAttn_SAPAttn_Processor</code> 继承自 <code>WanAttn_SVGAttn_Processor2_0</code>。经过一系列 <code>if/else</code> 判断后，会进入 <code>self.attention_core_logic</code>。</p>
+<p>SVG 内部的大致分支：</p>
+<ul>
+<li>如果不带 mask，或者处在 <code>first layer/step</code> 范围内，则强制 full attention，即直接走 <code>flash_attention</code>。</li>
+<li>如果使用 <code>self.use_spargeattn</code>，则直接走 <code>flash_attention_spargeattn</code>。</li>
+<li>其他情况进入 SVOO&#x2F;SVG sparse 路径。</li>
+</ul>
+<p>核心代码片段：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">sampled_mses = <span class="variable language_">self</span>.sample_mse(query, key, value)</span><br><span class="line">best_mask_idx = torch.argmin(sampled_mses, dim=<span class="number">0</span>)</span><br><span class="line"></span><br><span class="line">output_hidden_states = torch.zeros_like(query)</span><br><span class="line">query_out, key_out, value_out = torch.zeros_like(query), torch.zeros_like(key), torch.zeros_like(value)</span><br><span class="line"></span><br><span class="line">query_out, key_out, value_out = <span class="variable language_">self</span>.fast_sparse_head_placement(</span><br><span class="line">    query, key, value, query_out, key_out, value_out, best_mask_idx, context_length, num_frame, frame_size</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">hidden_states = <span class="variable language_">self</span>.sparse_flex_attention(query_out, key_out, value_out, block_mask=<span class="variable language_">self</span>.block_mask)</span><br><span class="line"></span><br><span class="line"><span class="variable language_">self</span>.fast_hidden_states_placement(</span><br><span class="line">    hidden_states, output_hidden_states, best_mask_idx, context_length, num_frame, frame_size</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="keyword">return</span> output_hidden_states.reshape(cfg, num_heads, seq_len, dim)</span><br></pre></td></tr></table></figure>
+
+<h3 id="1-3-SAP-SVOO-主流程"><a href="#1-3-SAP-SVOO-主流程" class="headerlink" title="1.3 SAP&#x2F;SVOO 主流程"></a>1.3 SAP&#x2F;SVOO 主流程</h3><p>SAP 路线首先通过之前注册的函数得到当前 step。然后判断是否需要强制 full attention；如果是，则执行：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">output_hidden_states = <span class="variable language_">self</span>.flash_attention(query, key, value)</span><br></pre></td></tr></table></figure>
+
+<p>如果进入 SVOO，则关键入口是：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">perm_result = <span class="variable language_">self</span>.semantic_aware_permutation(query, key, value, timestep)</span><br></pre></td></tr></table></figure>
+
+<p>这个函数内部会对 <code>query</code> 和 <code>key</code> 做一次较长的 <code>kmeans_clustering</code>。</p>
+<p>在 clustering 函数内部，<code>current_step</code> 用来判断是否可以直接 reuse cache 中的聚类结果。代码中存在固定的 <code>reuse_interval</code>，会在一定窗口内复用之前 step 的 cluster 结果。</p>
+<p>此处涉及分桶聚类，但是似乎对理解主流程不是很重要，因此略过。</p>
+<p>AI批注：这里可以暂时只记住“分桶聚类是为了降低全局聚类成本”。主线仍然是先给 token 分 cluster，再基于 cluster 构建 dynamic map。</p>
+<h3 id="1-4-Co-clustering"><a href="#1-4-Co-clustering" class="headerlink" title="1.4 Co-clustering"></a>1.4 Co-clustering</h3><p>聚类中最关键的步骤是 <code>co_cluster_tokens</code>：head 维度会被并进 batch，每个 head 内都会被当作一个独立 batch 来聚类。</p>
+<p>输入：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">q_flat: [B_heads, N, D]</span><br><span class="line">k_flat: [B_heads, N, D]</span><br></pre></td></tr></table></figure>
+
+<p>即当前的 Q&#x2F;K。</p>
+<p>随机初始化中心点：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">q_indices = torch.randint(<span class="number">0</span>, N, (B_heads, num_q_centroids), device=device)</span><br><span class="line">qcentroids = torch.gather(q_flat, dim=<span class="number">1</span>, index=q_indices[..., <span class="literal">None</span>].expand(-<span class="number">1</span>, -<span class="number">1</span>, D))</span><br></pre></td></tr></table></figure>
+
+<p>进入交替优化：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">for</span> _ <span class="keyword">in</span> <span class="built_in">range</span>(max_iters):</span><br><span class="line">    profile_centroids_k = torch.matmul(kcentroids, qcentroids.transpose(-<span class="number">2</span>, -<span class="number">1</span>))</span><br><span class="line">    profile_centroids_k = triton_l2norm_forward(profile_centroids_k, eps=<span class="number">1e-8</span>).contiguous()</span><br></pre></td></tr></table></figure>
+
+<p>这一步计算 q 中心对 k 中心的相似度，形状是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[B_heads, num_k_centroids, num_q_centroids]</span><br></pre></td></tr></table></figure>
+
+<p>随后对该相似度矩阵进行 L2 norm。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">k_norms = profile_norm_triton(k_flat, qcentroids)       <span class="comment"># (B, N), no large tensor</span></span><br><span class="line">klabels = fused_cocluster_assign_triton(k_flat, qcentroids, profile_centroids_k, k_norms)</span><br><span class="line">kcentroids, k_cluster_sizes = triton_centroid_update_sorted_euclid(k_flat, klabels, kcentroids, BLOCK_N=<span class="number">128</span>)</span><br></pre></td></tr></table></figure>
+
+<p>直观理解：</p>
+<ul>
+<li>对所有 K token 与 <code>qcentroids</code> 做矩阵相乘，得到 <code>[B, N]</code> 相关统计。</li>
+<li>在 profile 空间，也就是与 q centroid 的相似度空间里，把 K token 分配到最近的 K centroid。</li>
+<li>随后更新 K centroid。</li>
+</ul>
+<p>Triton 算子在此处的作用是降低内存开销。直接计算 token 与 centroid 的完整相似度矩阵会很大，但这里实际只需要归一化后的 L2 norm 来比较距离。</p>
+<p>AI 解释 Triton 做法：</p>
+<ul>
+<li>对一小块 token 和一小块 centroid 做矩阵乘。</li>
+<li>累加平方和。</li>
+<li>只输出 <code>k_norms: [B, N]</code>，也就是每个 token 的 profile norm。</li>
+<li>不输出完整 <code>[B, N, Qc]</code>。</li>
+</ul>
+<p>内存从：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">B * N * Qc</span><br></pre></td></tr></table></figure>
+
+<p>降低到：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">B * N</span><br></pre></td></tr></table></figure>
+
+<p>最终得到：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">qlabels:         [B_heads, N]</span><br><span class="line">qcentroids:      [B_heads, num_q_centroids, D]</span><br><span class="line">q_cluster_sizes: [B_heads, num_q_centroids]</span><br><span class="line"></span><br><span class="line">klabels:         [B_heads, N]</span><br><span class="line">kcentroids:      [B_heads, num_k_centroids, D]</span><br><span class="line">k_cluster_sizes: [B_heads, num_k_centroids]</span><br></pre></td></tr></table></figure>
+
+<h3 id="1-5-Dynamic-map"><a href="#1-5-Dynamic-map" class="headerlink" title="1.5 Dynamic map"></a>1.5 Dynamic map</h3><p>KMeans 完成之后，从 profiling 中得到稀疏度下界：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">min_kc_ratio = <span class="variable language_">self</span>._get_min_kc_ratio_for_heads_from_step(<span class="variable language_">self</span>.current_inference_step, num_heads)</span><br></pre></td></tr></table></figure>
+
+<p>随后对该下界进行裁切：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">for</span> csv_value <span class="keyword">in</span> sparsity_values:</span><br><span class="line">    value = csv_value</span><br><span class="line">    <span class="keyword">if</span> <span class="variable language_">self</span>.dynamic_min_kc_ratio_min <span class="keyword">is</span> <span class="keyword">not</span> <span class="literal">None</span>:</span><br><span class="line">        value = <span class="built_in">max</span>(value, <span class="variable language_">self</span>.dynamic_min_kc_ratio_min)</span><br><span class="line">    <span class="keyword">if</span> <span class="variable language_">self</span>.dynamic_min_kc_ratio_max <span class="keyword">is</span> <span class="keyword">not</span> <span class="literal">None</span>:</span><br><span class="line">        value = <span class="built_in">min</span>(value, <span class="variable language_">self</span>.dynamic_min_kc_ratio_max)</span><br><span class="line">    final_values.append(value)</span><br></pre></td></tr></table></figure>
+
+<p><code>identify_dynamic_map</code> 的目标是确认哪些 Q&#x2F;K cluster 可以相互计算。核心打分为：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">attn_scores = torch.matmul(query_centroids, key_centroids.transpose(-<span class="number">2</span>, -<span class="number">1</span>)) / (D**<span class="number">0.5</span>)</span><br></pre></td></tr></table></figure>
+
+<p>得到的 <code>dynamic_map</code> 是布尔矩阵。</p>
+<p>随后：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">k_weights = k_cluster_sizes.unsqueeze(-<span class="number">2</span>).<span class="built_in">float</span>()</span><br><span class="line"></span><br><span class="line">weighted_attn_probs = weighted_softmax(attn_scores, k_weights)</span><br><span class="line">sorted_probs, sorted_indices = torch.sort(weighted_attn_probs, dim=-<span class="number">1</span>, descending=<span class="literal">True</span>)</span><br><span class="line">remove_indices = cumsum_probs &gt; p</span><br><span class="line">remove_indices[..., <span class="number">1</span>:] = remove_indices[..., :-<span class="number">1</span>].clone()</span><br><span class="line">remove_indices[..., <span class="number">0</span>] = <span class="literal">False</span></span><br></pre></td></tr></table></figure>
+
+<p>这里先按照 top-p 选择 key cluster。<code>min/max_kc_ratio</code> 也会在此处发挥作用，用于约束每个 query cluster 最少&#x2F;最多保留多少 key clusters，具体操作对象是 <code>remove_indices</code>。</p>
+<p><code>identify_dynamic_map_global</code> 用于 <code>self.use_global_constraints</code> 的情形，返回内容相同。它会通过一些额外手段保留能为全局提供帮助的 key cluster。目前 SVOO 原文中没有明确提到这一段，疑似为尚未完善的实现片段。</p>
+<h3 id="1-6-Q-K-V-重排与后端"><a href="#1-6-Q-K-V-重排与后端" class="headerlink" title="1.6 Q&#x2F;K&#x2F;V 重排与后端"></a>1.6 Q&#x2F;K&#x2F;V 重排与后端</h3><p>推理后端选择：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sparse_backend = os.environ.get(<span class="string">&quot;SVG_SPARSE_ATTN_BACKEND&quot;</span>, <span class="string">&quot;flashinfer&quot;</span>).lower()</span><br></pre></td></tr></table></figure>
+
+<p>此时已经有：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">q_perm: [B, H, S, D]</span><br><span class="line">k_perm: [B, H, S, D]</span><br><span class="line">v_perm: [B, H, S, D]</span><br><span class="line"></span><br><span class="line">dyn_map: [B, H, q_cluster_num, k_cluster_num]  # bool</span><br><span class="line">qc_sz_s: [B, H, q_cluster_num]</span><br><span class="line">kc_sz_s: [B, H, k_cluster_num]</span><br></pre></td></tr></table></figure>
+
+<p>并且 Q&#x2F;K&#x2F;V 已经按 cluster 排好。每个 query cluster&#x2F;key cluster 是一个 variable-size block，<code>dyn_map</code> 决定哪些 block pair 要计算。</p>
+<p>这里支持三条路径：</p>
+<ul>
+<li>EAR + FlashInfer</li>
+<li>普通 SVOO + Triton</li>
+<li>普通 SVOO + FlashInfer</li>
+</ul>
+<p>根据 AI 解释，Triton 版本大概做：</p>
+<ul>
+<li>对每个 query cluster&#x2F;block 启动 kernel。</li>
+<li>根据 <code>dyn_map</code> 找允许 attend 的 key clusters。</li>
+<li>用 query&#x2F;key cluster cumulative sizes 定位 Q&#x2F;K&#x2F;V block 的起止位置。</li>
+<li>只对 <code>True</code> 的 block pair 计算 attention。</li>
+</ul>
+<p>FlashInfer sparse backend 是默认路径，使用 FlashInfer 的 variable block sparse attention wrapper。它会根据：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">dyn_map</span><br><span class="line">qc_sz_s</span><br><span class="line">kc_sz_s</span><br></pre></td></tr></table></figure>
+
+<p>先 <code>plan(...)</code>，然后 <code>run(q, k, v)</code>。</p>
+<p>优点：</p>
+<ul>
+<li>通常速度更好。</li>
+<li>专门为 attention&#x2F;sparse attention 优化。</li>
+<li>支持 variable block sparse planner。</li>
+</ul>
+<p>最后执行：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">attn_output = apply_inverse_permutation_triton(output_permuted, q_sorted_indices, dim=<span class="number">2</span>)</span><br></pre></td></tr></table></figure>
+
+<p>这一步把 sparse attention 的输出从 cluster 排序后的 token 顺序恢复回原始 token 顺序。<code>q_sorted_indices</code> 记录的是 permuted 位置上的 token 来自原始序列的哪个位置。</p>
+<h3 id="1-7-输出整理"><a href="#1-7-输出整理" class="headerlink" title="1.7 输出整理"></a>1.7 输出整理</h3><p>在 <code>attention_core_logic</code> 得到 <code>hidden_states</code> 之后，<code>self.get_o</code> 负责整理形状格式：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[B, H, S, D] -&gt; [B, S, H * D]</span><br></pre></td></tr></table></figure>
+
+<p>随后加到主 attention 的输出上。在 I2V 中：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hidden_states = text/video <span class="variable language_">self</span>-attn output + image-attn output</span><br></pre></td></tr></table></figure>
+
+<p>然后经过 attention 的输出线性层&#x2F;dropout，返回给 transformer。</p>
+<h3 id="1-8-Profiling"><a href="#1-8-Profiling" class="headerlink" title="1.8 Profiling"></a>1.8 Profiling</h3><p>Profiling 发生在 processor 的 <code>__call__</code> 最后：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="variable language_">self</span>.log_attention_sparsity(query, key, value, timestep, <span class="string">&quot;self&quot;</span>)</span><br></pre></td></tr></table></figure>
+
+<p>随后转到 <code>exact.py</code> 中的 <code>compute_exact_attention_sparsity</code>。</p>
+<p><code>attention mass</code>：在 self-attention 里，对于某一个 query token，会有一行 attention probability：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">attn = softmax(q_i @ K.T / sqrt(d))</span><br></pre></td></tr></table></figure>
+
+<p>形状为：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[num_key_tokens]</span><br></pre></td></tr></table></figure>
+
+<p>其中所有 key token 元素的和为 1。随后对 attention probability 进行 sort，找到能覆盖 threshold 的前 k 个 token，除以总数即为当前的 sparsity。</p>
+<hr>
+<h2 id="2-Veda"><a href="#2-Veda" class="headerlink" title="2. Veda"></a>2. Veda</h2><p>非开源。</p>
+<p>Veda 批判了以往静态与动态稀疏模式：</p>
+<ul>
+<li>预定义稀疏模式的方法由于结构僵化，与特定注意力头（head-specific）的几何结构存在失配（structural mismatch）。</li>
+<li>动态方法依赖隐式监督，且分块统计信息不足，因此会产生估计误差。</li>
+<li>不同注意力头以及扩散模型不同时间步（diffusion timesteps）之间存在显著异质性（heterogeneity）。</li>
+</ul>
+<p>Veda 建立 oracle mask：完全按照 top-k 筛选 token-wise attention，非常准确，但不适合实际运算。它将 oracle mask 作为 mask 的标准（ground truth）。<code>tile-wise structure</code> 指 oracle mask 呈现出的结构，tiling 的选择需要尽可能拟合该结构。</p>
+<hr>
+<h2 id="3-SVG2"><a href="#3-SVG2" class="headerlink" title="3. SVG2"></a>3. SVG2</h2><p>SVG2 其实是 SVOO 的前身代码。</p>
+<hr>
+<h2 id="4-Static-Mask-与-SVG"><a href="#4-Static-Mask-与-SVG" class="headerlink" title="4. Static Mask 与 SVG"></a>4. Static Mask 与 SVG</h2><p>Static mask 会提前预定义一个或一些 mask，以匹配时空特征。对于每个 head，其注意力结构只随 step、layer 以及 head 本身决定，详见 offline profiling，与当前 input 无关。这让我怀疑 instance-specific 的合理性。</p>
+<h3 id="4-1-replace-wan-attention"><a href="#4-1-replace-wan-attention" class="headerlink" title="4.1 replace_wan_attention"></a>4.1 <code>replace_wan_attention</code></h3><p>预定义两种 mask：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">masks = [<span class="string">&quot;spatial&quot;</span>, <span class="string">&quot;temporal&quot;</span>]</span><br><span class="line">AttnModule.attention_masks = [</span><br><span class="line">    get_attention_mask(</span><br><span class="line">        mask_name, sample_mse_max_row, context_length, num_frame_patches, frame_patches_one_frame</span><br><span class="line">    )</span><br><span class="line">    <span class="keyword">for</span> mask_name <span class="keyword">in</span> masks</span><br><span class="line">]</span><br></pre></td></tr></table></figure>
+
+<p>这个函数接口比较方便，可以扩展成更多 mask 类型。</p>
+<p>下面这段用于把 sparsity 转换成 mask block 窗口宽度：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">multiplier = diag_width = sparsity_to_width(</span><br><span class="line">    sparsity, context_length, num_frame_patches, frame_patches_one_frame</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+
+<p>这里的计算比较神秘，但总之也是用于定义 mask 形状。</p>
+<h3 id="4-2-Attention-后端"><a href="#4-2-Attention-后端" class="headerlink" title="4.2 Attention 后端"></a>4.2 Attention 后端</h3><p><code>attention.py</code> 中有两种后端：</p>
+<ul>
+<li>FlexAttention，对应 <code>AttnModule.block_mask</code></li>
+<li>FlashInfer，对应 <code>temporal_mask_metadata</code></li>
+</ul>
+<p><code>prepare_flexattention()</code> 中：</p>
+<ul>
+<li><code>mask_mod</code> 是“哪些 q-kv 位置允许 attention”的规则函数。</li>
+<li><code>block_mask</code> 是 FlexAttention 根据这个规则生成的 block sparse 执行计划。</li>
+<li><code>temporal_mask_mod</code> 保留第一帧 sink 和时间邻近窗口。</li>
+<li>在 SVG1 中，它会配合 head placement 当成统一 sparse attention 后端模板使用。</li>
+</ul>
+<p>感觉看不太懂，看看 <code>module.call</code> 里是怎么用的。</p>
+<p>AI批注：这里的重点是先区分“mask 规则函数”和“后端执行计划”。<code>mask_mod</code> 描述逻辑规则，<code>block_mask</code> 是 FlexAttention 根据规则预编译出来的可执行稀疏计划。</p>
+<h3 id="4-3-sample-mse"><a href="#4-3-sample-mse" class="headerlink" title="4.3 sample_mse"></a>4.3 <code>sample_mse</code></h3><p><code>WanAttn_SVGAttn_Processor2_0.attention_core_logic</code> 中会先采样比较不同 mask。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">sampled_attn_weights = F.softmax(sampled_qk_scores, dim=-<span class="number">1</span>)</span><br><span class="line">sampled_golden_hidden_states = torch.matmul(sampled_attn_weights, value)  <span class="comment"># (1, seq_len, dim)</span></span><br><span class="line"></span><br><span class="line">sampled_mses = torch.zeros(<span class="built_in">len</span>(<span class="variable language_">self</span>.attention_masks), cfg, num_heads, device=query.device, dtype=query.dtype)</span><br><span class="line"></span><br><span class="line"><span class="comment"># Only have Tri-diagonal and Striped</span></span><br><span class="line"><span class="keyword">for</span> mask_idx, attn_mask <span class="keyword">in</span> <span class="built_in">enumerate</span>(<span class="variable language_">self</span>.attention_masks):</span><br><span class="line">    sampled_attention_mask = attn_mask[sampled_rows, :]</span><br><span class="line">    sampled_attention_scores = sampled_qk_scores.masked_fill(sampled_attention_mask == <span class="number">0</span>, <span class="built_in">float</span>(<span class="string">&quot;-inf&quot;</span>))</span><br><span class="line">    sampled_attn_weights = F.softmax(sampled_attention_scores, dim=-<span class="number">1</span>)</span><br><span class="line">    sampled_hidden_states = torch.matmul(sampled_attn_weights, value)</span><br><span class="line">    mse = torch.mean((sampled_hidden_states - sampled_golden_hidden_states) ** <span class="number">2</span>, dim=(<span class="number">2</span>, <span class="number">3</span>))</span><br><span class="line">    sampled_mses[mask_idx] = mse</span><br></pre></td></tr></table></figure>
+
+<p><code>golden_hidden_state</code> 是采样出来的完整 dense hidden state，<code>sampled_hidden_states</code> 是各个 mask 下的 sparse 计算结果。每个 attention head 会比较 spatial&#x2F;temporal 两种 mask 谁更接近 dense attention。</p>
+<p>随后在 core logic 中：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">best_mask_idx = torch.argmin(sampled_mses, dim=<span class="number">0</span>)</span><br></pre></td></tr></table></figure>
+
+<h3 id="4-4-Head-placement"><a href="#4-4-Head-placement" class="headerlink" title="4.4 Head placement"></a>4.4 Head placement</h3><p>核心调用：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">query_out, key_out, value_out = <span class="variable language_">self</span>.fast_sparse_head_placement(</span><br><span class="line">    query, key, value, query_out, key_out, value_out, best_mask_idx, context_length, num_frame, frame_size</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+
+<p>进入这个函数会来到 Triton kernel：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@triton.jit</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">wan_sparse_head_placement_kernel</span>(<span class="params"></span></span><br><span class="line"><span class="params">    query_ptr,</span></span><br><span class="line"><span class="params">    key_ptr,</span></span><br><span class="line"><span class="params">    value_ptr,      <span class="comment"># [cfg, num_heads, seq_len, head_dim]</span></span></span><br><span class="line"><span class="params">    query_out_ptr,</span></span><br><span class="line"><span class="params">    key_out_ptr,</span></span><br><span class="line"><span class="params">    value_out_ptr,  <span class="comment"># [cfg, num_heads, seq_len, head_dim]</span></span></span><br><span class="line"><span class="params">    best_mask_idx_ptr,  <span class="comment"># [cfg, num_heads]</span></span></span><br><span class="line"><span class="params">    query_stride_b,</span></span><br><span class="line"><span class="params">    query_stride_h,</span></span><br><span class="line"><span class="params">    query_stride_s,</span></span><br><span class="line"><span class="params">    query_stride_d,</span></span><br><span class="line"><span class="params">    mask_idx_stride_b,</span></span><br><span class="line"><span class="params">    mask_idx_stride_h,</span></span><br><span class="line"><span class="params">    seq_len: tl.constexpr,</span></span><br><span class="line"><span class="params">    head_dim: tl.constexpr,</span></span><br><span class="line"><span class="params">    context_length: tl.constexpr,</span></span><br><span class="line"><span class="params">    num_frame: tl.constexpr,</span></span><br><span class="line"><span class="params">    frame_size: tl.constexpr,</span></span><br><span class="line"><span class="params">    BLOCK_SIZE: tl.constexpr,</span></span><br><span class="line"><span class="params"></span>):</span><br><span class="line">    cfg = tl.program_id(<span class="number">0</span>)</span><br><span class="line">    head = tl.program_id(<span class="number">1</span>)</span><br><span class="line">    block_id = tl.program_id(<span class="number">2</span>)</span><br><span class="line"></span><br><span class="line">    start_id = block_id * BLOCK_SIZE</span><br><span class="line">    end_id = start_id + BLOCK_SIZE</span><br><span class="line">    end_id = tl.where(end_id &gt; seq_len, seq_len, end_id)</span><br><span class="line"></span><br><span class="line">    is_temporal = tl.load(best_mask_idx_ptr + cfg * mask_idx_stride_b + head * mask_idx_stride_h)</span><br><span class="line"></span><br><span class="line">    offset_token = tl.arange(<span class="number">0</span>, BLOCK_SIZE) + start_id</span><br><span class="line">    offset_mask = offset_token &lt; seq_len</span><br><span class="line">    offset_d = tl.arange(<span class="number">0</span>, head_dim)</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> is_temporal:</span><br><span class="line">        frame_id = offset_token // frame_size</span><br><span class="line">        patch_id = offset_token - frame_id * frame_size</span><br><span class="line">        offset_store_token = tl.where(</span><br><span class="line">            offset_token &gt;= seq_len - context_length, offset_token, patch_id * num_frame + frame_id</span><br><span class="line">        )</span><br><span class="line">        <span class="comment"># load original Q/K/V and store to temporal order</span></span><br><span class="line">    <span class="keyword">else</span>:</span><br><span class="line">        <span class="comment"># spatial head keeps original layout</span></span><br><span class="line">        offset_store = offset_load</span><br></pre></td></tr></table></figure>
+
+<p>一个 Triton program 负责某个 <code>cfg</code>、某个 <code>head</code> 的一段 token block，<code>start_id/end_id</code> 决定当前处理哪些 token。</p>
+<p>这个函数按照 <code>best_mask_idx</code> 判断每个 head 该用 spatial 还是 temporal pattern：</p>
+<ul>
+<li>Spatial head：Q&#x2F;K&#x2F;V 保持原顺序。</li>
+<li>Temporal head：Q&#x2F;K&#x2F;V 从 frame-major 重排成 token-major。</li>
+<li>重排后所有 head 都可以喂给同一个 block sparse attention mask。</li>
+</ul>
+<p><code>token-major</code> 指同一个 spatial patch 在不同帧上的 token 被排到一起。代码：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">frame_id = offset_token // frame_size</span><br><span class="line">patch_id = offset_token - frame_id * frame_size</span><br><span class="line">offset_store_token = patch_id * num_frame + frame_id</span><br></pre></td></tr></table></figure>
+
+<p>然后把原来的 token 写到新的位置：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">tl.store(offset_query_out, query, ...)</span><br><span class="line">tl.store(offset_key_out, key, ...)</span><br><span class="line">tl.store(offset_value_out, value, ...)</span><br></pre></td></tr></table></figure>
+
+<p>如果是 spatial，则保持原始位置：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">offset_store = offset_load</span><br></pre></td></tr></table></figure>
+
+<p>Placement 结束后，进入 sparse attention：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">hidden_states = <span class="variable language_">self</span>.sparse_flex_attention(</span><br><span class="line">    query_out, key_out, value_out,</span><br><span class="line">    block_mask=<span class="variable language_">self</span>.block_mask</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+
+<p>这里的 <code>block_mask</code> 本质是一个线性局部窗口：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">abs</span>(q_idx - kv_idx) &lt;= window</span><br></pre></td></tr></table></figure>
+
+<p>最后把 <code>hidden_states</code> 重新排回去。attention 是在 <code>query_out/key_out/value_out</code> 上算的，所以 temporal head 的输出也是 token-major 顺序。反向索引是：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">frame_id * frame_size + patch_id</span><br></pre></td></tr></table></figure>
+
+<p>Spatial head 则原样复制。</p>
+<p>（真的很弯绕）</p>
+<p>AI批注：这段可以理解成“把不同 head 的 preferred sparse pattern 统一映射到同一种局部窗口格式”。Temporal head 通过重排 token，使时间相邻关系在重排后变成序列上的局部邻近关系。</p>
+<p>最后，<code>replace_wan_attention</code> 中还有一行 <code>replace_sparse_forward()</code>，用于替换 forward 函数，使接口通用。</p>
+<p>Hunyuan 的 joint attention：同时处理 video hidden states 和 text&#x2F;context hidden states，并返回两路。</p>
+<p>（还没看）</p>
+<p>AI批注：Hunyuan joint attention 的关键不同点是 video token 和 text&#x2F;context token 会一起参与 attention，并且输出可能需要拆回两路。当前笔记可以先保留这个入口，等后续读代码时再展开。</p>
+<hr>
+<h2 id="5-Radial-Attention"><a href="#5-Radial-Attention" class="headerlink" title="5. Radial Attention"></a>5. Radial Attention</h2><p>Radial 使用单一 mask pattern，不需要通过 <code>sample_mse</code> 提前选择。</p>
+<h3 id="5-1-Wan2-1-sparse-route"><a href="#5-1-Wan2-1-sparse-route" class="headerlink" title="5.1 Wan2.1 sparse route"></a>5.1 Wan2.1 sparse route</h3><p>在 <code>call</code> 中确认 sparse 路线后，会将 Q&#x2F;K&#x2F;V 从：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[b, s, h, d]</span><br></pre></td></tr></table></figure>
+
+<p>转成：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[b*s, h, d]</span><br></pre></td></tr></table></figure>
+
+<p>以适配 RadialAttention 后端，相当于 batch 被并入 sequence。</p>
+<p>代码：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">else</span>:  <span class="comment"># case for sparse attention</span></span><br><span class="line">    batch_size = query.shape[<span class="number">0</span>]</span><br><span class="line">    <span class="keyword">if</span> <span class="variable language_">self</span>.use_sp:</span><br><span class="line">        <span class="comment"># Ugly but useful now. <span class="doctag">TODO:</span> modify all_to_all fuc of xdit to handle different layouts</span></span><br><span class="line">        query = rearrange(query, <span class="string">&quot;b s h d -&gt; b h s d&quot;</span>).contiguous()</span><br><span class="line">        key = rearrange(key, <span class="string">&quot;b s h d -&gt; b h s d&quot;</span>).contiguous()</span><br><span class="line">        value = rearrange(value, <span class="string">&quot;b s h d -&gt; b h s d&quot;</span>).contiguous()</span><br><span class="line"></span><br><span class="line">        <span class="comment"># input all_to_all comm needs [b h s d] layout</span></span><br><span class="line">        query = _ft_c_input_all_to_all(query)</span><br><span class="line">        key = _ft_c_input_all_to_all(key)</span><br><span class="line">        value = _ft_c_input_all_to_all(value)</span><br><span class="line"></span><br><span class="line">        query = rearrange(query, <span class="string">&quot;b h s d -&gt; (b s) h d&quot;</span>).contiguous()</span><br><span class="line">        key = rearrange(key, <span class="string">&quot;b h s d -&gt; (b s) h d&quot;</span>).contiguous()</span><br><span class="line">        value = rearrange(value, <span class="string">&quot;b h s d -&gt; (b s) h d&quot;</span>).contiguous()</span><br><span class="line">    <span class="keyword">else</span>:</span><br><span class="line">        query = rearrange(query, <span class="string">&quot;b s h d -&gt; (b s) h d&quot;</span>)</span><br><span class="line">        key = rearrange(key, <span class="string">&quot;b s h d -&gt; (b s) h d&quot;</span>)</span><br><span class="line">        value = rearrange(value, <span class="string">&quot;b s h d -&gt; (b s) h d&quot;</span>)</span><br></pre></td></tr></table></figure>
+
+<p>多卡中还会进行 all-to-all 通信。这里使用的是 Ulysses sequence parallel：</p>
+<ul>
+<li>先按 sequence&#x2F;token 维度切分 hidden states。</li>
+<li>attention 内再通过 all-to-all 改成按 head 维度切分 Q&#x2F;K&#x2F;V。</li>
+</ul>
+<p>All-to-all 前：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">每张卡 = 一段 sequence + 全部 heads</span><br><span class="line"></span><br><span class="line">GPU 0: [b, S/P, H, D]</span><br><span class="line">GPU 1: [b, S/P, H, D]</span><br></pre></td></tr></table></figure>
+
+<p>All-to-all 后：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">每张卡 = 全部 sequence + 一部分 heads</span><br><span class="line"></span><br><span class="line">GPU 0: [b, S, H/P, D]</span><br><span class="line">GPU 1: [b, S, H/P, D]</span><br></pre></td></tr></table></figure>
+
+<h3 id="5-2-MaskMap-与-block-mask"><a href="#5-2-MaskMap-与-block-mask" class="headerlink" title="5.2 MaskMap 与 block mask"></a>5.2 MaskMap 与 block mask</h3><p>来到 <code>RadialAttention</code> 后，关键一行是：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">video_mask = mask_map.queryLogMask(</span><br><span class="line">    query, sparsity_type, block_size=block_size, decay_factor=decay_factor, model_type=model_type</span><br><span class="line">) <span class="keyword">if</span> mask_map <span class="keyword">else</span> <span class="literal">None</span></span><br></pre></td></tr></table></figure>
+
+<p><code>mask_map</code> 来自 <code>attn_mask.py</code> 中的 <code>MaskMap</code> 类：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">MaskMap</span>:</span><br><span class="line">    _log_mask = <span class="literal">None</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__init__</span>(<span class="params">self, video_token_num=<span class="number">25440</span>, num_frame=<span class="number">16</span></span>):</span><br><span class="line">        <span class="variable language_">self</span>.video_token_num = video_token_num</span><br><span class="line">        <span class="variable language_">self</span>.num_frame = num_frame</span><br><span class="line"></span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">queryLogMask</span>(<span class="params">self, query, sparse_type, block_size=<span class="number">128</span>, decay_factor=<span class="number">0.5</span>, model_type=<span class="literal">None</span></span>):</span><br><span class="line">        <span class="keyword">if</span> MaskMap._log_mask <span class="keyword">is</span> <span class="literal">None</span>:</span><br><span class="line">            <span class="comment"># query shape: [batch, seq, heads, dim]</span></span><br><span class="line">            seq_len = query.shape[<span class="number">1</span>]</span><br><span class="line">            MaskMap._log_mask = torch.ones(</span><br><span class="line">                (seq_len // block_size, seq_len // block_size),</span><br><span class="line">                device=query.device,</span><br><span class="line">                dtype=torch.<span class="built_in">bool</span>,</span><br><span class="line">            )</span><br><span class="line">            MaskMap._log_mask = gen_log_mask_shrinked(</span><br><span class="line">                query, seq_len, <span class="variable language_">self</span>.video_token_num, <span class="variable language_">self</span>.num_frame,</span><br><span class="line">                sparse_type=sparse_type, decay_factor=decay_factor,</span><br><span class="line">                model_type=model_type, block_size=block_size</span><br><span class="line">            )</span><br><span class="line">        <span class="keyword">return</span> MaskMap._log_mask</span><br></pre></td></tr></table></figure>
+
+<p><code>gen_log_mask_shrinked</code> 负责制造 block-wise mask。如果 <code>block_size = 128</code>，那么每个 <code>True/False</code> 控制的是一个 <code>128 x 128</code> 的 attention block 是否参与计算。</p>
+<p>第一步：text 相关部分全部 dense。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">video_text_border = video_token_num // block_size</span><br><span class="line"></span><br><span class="line">final_log_mask[video_text_border:] = <span class="literal">True</span></span><br><span class="line">final_log_mask[:, video_text_border:] = <span class="literal">True</span></span><br></pre></td></tr></table></figure>
+
+<p>第二步：每一对视频帧生成 token-level local mask。</p>
+<p>对于帧对 <code>(i, j)</code>，先定义帧距离：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">d = |i - j|</span><br></pre></td></tr></table></figure>
+
+<p>如果是 Wan，并且 <code>j == 0</code>：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> j == <span class="number">0</span> <span class="keyword">and</span> model_type == <span class="string">&quot;wan&quot;</span>:</span><br><span class="line">    local_mask = torch.ones(...)</span><br></pre></td></tr></table></figure>
+
+<p>这叫 attention sink。意思是所有 query 帧都可以 attend 到第 0 帧。公式为：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">M_ij(u, v) = 1, if j = 0 and model_type = &quot;wan&quot;</span><br></pre></td></tr></table></figure>
+
+<p>其中：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">u = query 帧内 token index</span><br><span class="line">v = key 帧内 token index</span><br><span class="line">u, v in [0, T)</span><br></pre></td></tr></table></figure>
+
+<p>如果不是 attention sink，就走 radial&#x2F;log sparse 规则：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">window_width = get_window_width(...)</span><br><span class="line">local_mask = torch.<span class="built_in">abs</span>(col_indices - row_indices) &lt;= window_width</span><br><span class="line">split_mask = get_diagonal_split_mask(...)</span><br><span class="line">local_mask = torch.logical_and(local_mask, split_mask)</span><br></pre></td></tr></table></figure>
+
+<p>对应公式：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">M_ij(u, v) = 1[|u - v| &lt;= W_ij] * S_ij</span><br></pre></td></tr></table></figure>
+
+<p>其中：</p>
+<ul>
+<li><code>W_ij</code> 是当前帧对的空间窗口宽度。</li>
+<li><code>S_ij</code> 是当前帧对是否被 diagonal split 保留。</li>
+</ul>
+<p>插入看 diagonal split：</p>
+<p>（一些很烦人的逻辑，先跳过了）</p>
+<p>AI批注：diagonal split 的核心作用是进一步下采样远距离帧对，不是改变局部窗口公式本身。它根据帧距离把某些 frame-pair 整体保留或整体丢弃，降低远距离帧间 attention 的计算量。</p>
+<h3 id="5-3-后端：FlashInfer"><a href="#5-3-后端：FlashInfer" class="headerlink" title="5.3 后端：FlashInfer"></a>5.3 后端：FlashInfer</h3><p>接下来来到后端。第一类是 FlashInfer：先把 mask 转成 BSR&#x2F;CSR 风格的稀疏矩阵索引结构。</p>
+<p>先裁剪掉必走 dense attention 的 text tokens：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">video_mask = video_mask[</span><br><span class="line">    :mask_map.video_token_num // block_size,</span><br><span class="line">    :mask_map.video_token_num // block_size</span><br><span class="line">]</span><br></pre></td></tr></table></figure>
+
+<p>形状变成：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[num_video_blocks, num_video_blocks]</span><br></pre></td></tr></table></figure>
+
+<p>准备 FlashInfer 临时工作区：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">workspace_buffer = torch.empty(<span class="number">128</span> * <span class="number">1024</span> * <span class="number">1024</span>, ...)</span><br><span class="line">bsr_wrapper = flashinfer.BlockSparseAttentionWrapper(</span><br><span class="line">    workspace_buffer,</span><br><span class="line">    backend=<span class="string">&quot;fa2&quot;</span>,</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+
+<p>可以理解为 FlashInfer kernel 运行时需要一块 scratch memory。</p>
+<p>随后：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">indptr = get_indptr_from_mask(video_mask, query)</span><br><span class="line">indices = get_indices_from_mask(video_mask, query)</span><br></pre></td></tr></table></figure>
+
+<p>它们把二维 bool mask 转成稀疏格式。</p>
+<p>例如 block mask：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">row 0: [1, 0, 1, 0]</span><br><span class="line">row 1: [0, 1, 1, 0]</span><br><span class="line">row 2: [1, 0, 0, 1]</span><br></pre></td></tr></table></figure>
+
+<p>则：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">indices = [0, 2, 1, 2, 0, 3]</span><br><span class="line">indptr  = [0, 2, 4, 6]</span><br></pre></td></tr></table></figure>
+
+<p>解释：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">row 0 -&gt; indices[0:2] = [0, 2]</span><br><span class="line">row 1 -&gt; indices[2:4] = [1, 2]</span><br><span class="line">row 2 -&gt; indices[4:6] = [0, 3]</span><br></pre></td></tr></table></figure>
+
+<p>这里是 block sparse，所以每一个 <code>1</code> 不是一个元素，而是一个 <code>block_size x block_size</code> 的 attention 子矩阵。</p>
+<h3 id="5-4-后端：SpargeSageAttnBackend"><a href="#5-4-后端：SpargeSageAttnBackend" class="headerlink" title="5.4 后端：SpargeSageAttnBackend"></a>5.4 后端：SpargeSageAttnBackend</h3><p><code>pre_defined_mask is None</code> 时，也就是 Wan case，全部是 video tokens，不需要额外 token 有效性裁剪。</p>
+<p><code>block_sparse_sage2_attn_cuda</code> 可以理解为把 SageAttention2 的低精度&#x2F;量化 attention kernel 改造成 block-sparse 版本。</p>
+<p>需要先转换 mask：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">converted_mask = repeat(</span><br><span class="line">    sparge_mask_convert(mask=video_mask, block_size=block_size, arch=arch),</span><br><span class="line">    <span class="string">&quot;s t -&gt; b h s t&quot;</span>,</span><br><span class="line">    b=batch_size,</span><br><span class="line">    h=query.shape[<span class="number">2</span>],</span><br><span class="line">)</span><br><span class="line">converted_mask = converted_mask.to(torch.int8)</span><br></pre></td></tr></table></figure>
+
+<p><code>sparge_mask_convert</code>：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">sparge_mask_convert</span>(<span class="params">mask: torch.Tensor, block_size: <span class="built_in">int</span> = <span class="number">128</span>, arch=<span class="string">&quot;sm&quot;</span></span>) -&gt; torch.Tensor:</span><br><span class="line">    <span class="keyword">assert</span> block_size <span class="keyword">in</span> [<span class="number">128</span>, <span class="number">64</span>], <span class="string">&quot;Radial Attention only supports block size of 128 or 64&quot;</span></span><br><span class="line">    <span class="keyword">assert</span> mask.shape[<span class="number">0</span>] == mask.shape[<span class="number">1</span>], <span class="string">&quot;Input mask must be square.&quot;</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> block_size == <span class="number">128</span>:</span><br><span class="line">        <span class="keyword">if</span> arch == <span class="string">&quot;sm90&quot;</span>:</span><br><span class="line">            new_mask = torch.repeat_interleave(mask, <span class="number">2</span>, dim=<span class="number">0</span>)</span><br><span class="line">        <span class="keyword">else</span>:</span><br><span class="line">            new_mask = torch.repeat_interleave(mask, <span class="number">2</span>, dim=<span class="number">1</span>)</span><br><span class="line"></span><br><span class="line">    <span class="keyword">elif</span> block_size == <span class="number">64</span>:</span><br><span class="line">        <span class="keyword">if</span> arch == <span class="string">&quot;sm90&quot;</span>:</span><br><span class="line">            num_row, num_col = mask.shape</span><br><span class="line">            reshaped_mask = mask.view(num_row, num_col // <span class="number">2</span>, <span class="number">2</span>)</span><br><span class="line">            new_mask = torch.<span class="built_in">max</span>(reshaped_mask, dim=<span class="number">2</span>).values</span><br><span class="line">        <span class="keyword">else</span>:</span><br><span class="line">            num_row, num_col = mask.shape</span><br><span class="line">            reshaped_mask = mask.view(num_row // <span class="number">2</span>, <span class="number">2</span>, num_col)</span><br><span class="line">            new_mask = torch.<span class="built_in">max</span>(reshaped_mask, dim=<span class="number">1</span>).values</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> new_mask</span><br></pre></td></tr></table></figure>
+
+<p>同时 Q&#x2F;K&#x2F;V layout 会变成：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[b, h, s, d]</span><br></pre></td></tr></table></figure>
+
+<p>并配合：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tensor_layout=<span class="string">&quot;HND&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>Seq length 需要能整除 block size。</p>
+<p>Text 部分直接通过 FlashInfer：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">output_text = flashinfer.single_prefill_with_kv_cache(</span><br><span class="line">    q=q_flashinfer,</span><br><span class="line">    k=k_flashinfer,</span><br><span class="line">    v=v_flashinfer,</span><br><span class="line">    causal=<span class="literal">False</span>,</span><br><span class="line">    return_lse=<span class="literal">False</span>,</span><br><span class="line">)</span><br><span class="line">output_text = rearrange(output_text, <span class="string">&quot;(b s) h d -&gt; b s (h d)&quot;</span>, b=batch_size)</span><br><span class="line"></span><br><span class="line"><span class="keyword">return</span> torch.cat([output_video, output_text], dim=<span class="number">1</span>)</span><br></pre></td></tr></table></figure>
+
+<p>以上就是 Sparge 后端的调用方式。</p>
+<hr>
+<h2 id="6-Sparse-vDiT"><a href="#6-Sparse-vDiT" class="headerlink" title="6. Sparse-vDiT"></a>6. Sparse-vDiT</h2><p>依旧还没有源码。</p>
+<hr>
+<h2 id="7-SageAttention"><a href="#7-SageAttention" class="headerlink" title="7. SageAttention"></a>7. SageAttention</h2><h3 id="7-1-量化基础"><a href="#7-1-量化基础" class="headerlink" title="7.1 量化基础"></a>7.1 量化基础</h3><p>常规动态量化：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">scale = max(abs(X)) / 127</span><br><span class="line">X_int8 = round(X / scale)</span><br><span class="line">X ≈ scale * X_int8</span><br></pre></td></tr></table></figure>
+
+<p>如上可见，scale 会被离群值支配，让普通小值失去分辨率。</p>
+<p>量化粒度指多少个数共用一个 scale。例如 per-token 量化就是一个 token 的整行向量共用一个 scale。</p>
+<h3 id="7-2-SageAttention1"><a href="#7-2-SageAttention1" class="headerlink" title="7.2 SageAttention1"></a>7.2 SageAttention1</h3><p>量化目标：将 <code>QK^T</code> 矩阵乘法量化成低精度，使用 GPU 的 INT8&#x2F;INT4&#x2F;FP8&#x2F;FP4 Tensor Core 加速，同时保持模型输出不变。</p>
+<p>难点在于 softmax 会放大量化误差，而且 Q&#x2F;K 结果中的离群值容易把正常值压成 0。</p>
+<p>量化基本形式：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">高精度 X -&gt; 低精度 X_hat + scale</span><br><span class="line">X ≈ scale * X_hat</span><br></pre></td></tr></table></figure>
+
+<p>SageAttention1 发现，直接把 <code>Q/K/P/V</code> 都 INT8 会失败。尤其在图像&#x2F;视频生成模型里，K 有很强的 channel-wise outlier，也就是某些通道整体偏大。如果直接量化，scale 会被这些大值拉大，普通元素分辨率变差。</p>
+<h4 id="SmoothK"><a href="#SmoothK" class="headerlink" title="SmoothK"></a>SmoothK</h4><p>论文发现 K 的离群值很多是所有 token 共享的通道偏置，于是做：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">K&#x27; = K - mean(K, over tokens)</span><br></pre></td></tr></table></figure>
+
+<p>这不会改变 softmax 结果。因为对任意 query <code>q</code>：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">q(K - mean(K))^T = qK^T - 常数</span><br><span class="line">softmax(x - 常数) = softmax(x)</span><br></pre></td></tr></table></figure>
+
+<h4 id="Kernel-选择"><a href="#Kernel-选择" class="headerlink" title="Kernel 选择"></a>Kernel 选择</h4><p>SageAttention1 中 QK 用 INT8，但 PV 不强行 INT8，而是 FP16。这里的 accumulator 指矩阵乘累加时的累加精度。</p>
+<p>它实现了几类 kernel：</p>
+<ul>
+<li><code>SAGEAttn-T</code>：Q&#x2F;K per-token INT8，P&#x2F;V FP16。</li>
+<li><code>SAGEAttn-B</code>：Q&#x2F;K per-block INT8，P&#x2F;V FP16。</li>
+<li><code>SAGEAttn-vT/vB</code>：进一步把 P&#x2F;V 也 INT8，但只在足够准确的层使用。</li>
+</ul>
+<h3 id="7-3-SageAttention2"><a href="#7-3-SageAttention2" class="headerlink" title="7.3 SageAttention2"></a>7.3 SageAttention2</h3><p>SageAttention2 使用 INT4 QK + FP8 PV，在 SageAttention1 基础上进一步压低精度。</p>
+<h4 id="SmoothQ"><a href="#SmoothQ" class="headerlink" title="SmoothQ"></a>SmoothQ</h4><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Qi&#x27; = Qi - mean(Qi)</span><br><span class="line">QK^T = Qi&#x27;K^T + mean(Qi)K^T</span><br></pre></td></tr></table></figure>
+
+<p>Q 去均值后更适合 INT4 量化，但为了保持数学等价，需要额外用一个 GEMV 把均值项加回来。</p>
+<p>如果直接用 <code>Qi&#39;</code>，算到的是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">S&#x27; = Q_i&#x27; K_j^T</span><br><span class="line">   = (Q_i - q_mean) K_j^T</span><br><span class="line">   = Q_i K_j^T - q_mean K_j^T</span><br></pre></td></tr></table></figure>
+
+<p>比原始分数少一项。此处 <code>q_mean K_j^T</code> 是 query block 对当前 key block 的补偿项，是一个矩阵-向量乘法。SmoothK 不用补项的原因是：</p>
+<p>（这里原笔记未展开）</p>
+<h4 id="Per-thread-quantization"><a href="#Per-thread-quantization" class="headerlink" title="Per-thread quantization"></a>Per-thread quantization</h4><p>GPU 做 INT4 Tensor Core 矩阵乘时，不是一个线程算一个完整 token。一个 warp 有 32 个 thread，它们共同执行一个小块 MMA。例如 <code>128 x 64</code> 的 Q block 会被切成 32 个量化组，每组对应某些 thread 实际会一起处理的 token 片段。</p>
+<p>Per-thread quantization 的 scale 数量不会比 per-block 多太多，并且更贴合 thread 布局，因此额外开销接近 per-block。</p>
+<h4 id="P-V-FP8-E4M3"><a href="#P-V-FP8-E4M3" class="headerlink" title="P&#x2F;V FP8 E4M3"></a>P&#x2F;V FP8 E4M3</h4><p>FP8 E4M3：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">E = exponent，指数位</span><br><span class="line">M = mantissa，尾数位</span><br><span class="line"></span><br><span class="line">E4M3 = 1 位符号位 + 4 位指数 + 3 位尾数</span><br><span class="line">总共 8 位</span><br></pre></td></tr></table></figure>
+
+<h4 id="Two-level-accumulation"><a href="#Two-level-accumulation" class="headerlink" title="Two-level accumulation"></a>Two-level accumulation</h4><p>为了解决 FP8 accumulator 实际只有 FP22 有效精度的问题，SageAttention2 使用 two-level accumulation。</p>
+<p>原始 FlashAttention 的 block 累加大致是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">O_ij = alpha * O_i,j-1 + P~_ij V_j</span><br><span class="line">alpha = exp(m_i,j-1 - m_ij)</span><br></pre></td></tr></table></figure>
+
+<p>Two-level 做法是先在小 block 内用 FP8 MMA 得到：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">R_ij = P~_ij V_j</span><br></pre></td></tr></table></figure>
+
+<p>再把 <code>R_ij</code> 累加到 FP32 buffer <code>O_ij</code>。</p>
+<h3 id="7-4-SageAttention3"><a href="#7-4-SageAttention3" class="headerlink" title="7.4 SageAttention3"></a>7.4 SageAttention3</h3><p>SageAttention3 面向 Blackwell，也就是有 FP4 Tensor Core 的 GPU。</p>
+<ul>
+<li>推理：设计 FP4 attention，即 SageAttention3。</li>
+<li>训练：设计 INT8 forward&#x2F;backward attention，即 SageBwd。</li>
+</ul>
+<p>采用 microscaling FP4：把矩阵按很小的组切分，每个 <code>1 x 16</code> 小组共享一个 FP8 scale。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">s_ij = max(abs(X_ij)) / 6</span><br><span class="line">X_hat_ij = round_fp4(X_ij / s_ij)</span><br><span class="line">X_ij ≈ s_ij * X_hat_ij</span><br></pre></td></tr></table></figure>
+
+<p>SageAttention3 想把两个核心矩阵乘都放到 FP4 Tensor Core 上：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">S = QK^T</span><br><span class="line">O = PV</span><br></pre></td></tr></table></figure>
+
+<p>所以它做：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">Q -&gt; FP4 + FP8 scale</span><br><span class="line">K -&gt; FP4 + FP8 scale</span><br><span class="line">S = FP4MM(Q_hat, sQ, K_hat, sK)</span><br><span class="line"></span><br><span class="line">P -&gt; FP4 + FP8 scale</span><br><span class="line">V -&gt; FP4 + FP8 scale</span><br><span class="line">O = FP4MM(P_hat, sP, V_hat, sV)</span><br></pre></td></tr></table></figure>
+
+<p>其中 <code>FP4MM</code> 是 Blackwell GPU 支持的 microscaling FP4 矩阵乘。它不是普通 matmul，而是硬件知道输入矩阵是 FP4，并且每小组有 FP8 scale，计算时会自动结合 scale。</p>
+<p>直接这么做会有两个问题：</p>
+<ol>
+<li>Q&#x2F;K 有 outlier。解决方案是继承 SageAttention1&#x2F;2 的 smoothing：</li>
+</ol>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">K = K - mean(K)</span><br><span class="line">Q = Q - mean(Q)，再用 GEMV 加回补偿项</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>P 很特殊。<code>P = softmax(S)</code>，很多值很小，范围在 <code>[0,1]</code>。如果直接 microscaling：</li>
+</ol>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sP = max(P_block) / 6</span><br></pre></td></tr></table></figure>
+
+<p>由于 <code>max(P_block)</code> 最多也就是 1，所以：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sP &lt;= 1/6 ≈ 0.167</span><br></pre></td></tr></table></figure>
+
+<p>这个 scale 要用 FP8 E4M3 表示。scale 太小、动态范围利用不好，精度会差。</p>
+<p>所以 SageAttention3 对 P 用 two-level scaling：（有关于这一部分，我可能还需要再手推一遍）</p>
+<p>第一层：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">sP1 = rowmax(P) / (448 * 6)</span><br><span class="line">P2 = P / sP1</span><br></pre></td></tr></table></figure>
+
+<p>这一步把 P 放大。因为 E4M3 最大约 448，FP4 组内最大约 6，所以目标是把 <code>P2</code> 的范围放到：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[0, 448 * 6]</span><br></pre></td></tr></table></figure>
+
+<p>第二层再做普通 microscaling：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">sP2, P_hat = microscale_fp4(P2)</span><br><span class="line">P ≈ P_hat * sP2 * sP1</span><br></pre></td></tr></table></figure>
+
+<p>这样 <code>sP2</code> 能更充分利用 FP8 E4M3 的表示范围，误差更小。</p>
+<p>代码有点难，导致阅读效率很低。接着来看 Sparge Attention。</p>
+<hr>
+<h2 id="8-Sparge-Attention"><a href="#8-Sparge-Attention" class="headerlink" title="8. Sparge Attention"></a>8. Sparge Attention</h2><p>入口文件：<code>core.py</code></p>
+<p>主函数：<code>spas_sage2_attn_meansim_topk_cuda</code></p>
+<h3 id="8-1-函数-1：get-block-map-meansim-fuse-quant"><a href="#8-1-函数-1：get-block-map-meansim-fuse-quant" class="headerlink" title="8.1 函数 1：get_block_map_meansim_fuse_quant"></a>8.1 函数 1：<code>get_block_map_meansim_fuse_quant</code></h3><p>这个函数把 Q&#x2F;K 量化成 INT8，并构建 block sparse mask，也就是第一个 mask。</p>
+<p>关键调用：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">pooled_qblocks, sim_qblocks, q_int8, q_scale = get_pool_sim_triton_simmean_fuse_quant(</span><br><span class="line">    q, <span class="literal">None</span>, BLKQ, simthreshd1</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">pooled_kblocks, sim_kblocks, k_int8, k_scale = get_pool_sim_triton_simmean_fuse_quant(</span><br><span class="line">    k, km, BLKK, simthreshd1</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+
+<p>通常 <code>BLKQ=128, BLKK=64</code>，<code>km</code> 是 SmoothK 中要用到的 <code>k.mean</code>。</p>
+<h4 id="8-1-1-均值池化、相似度判定、INT8-量化"><a href="#8-1-1-均值池化、相似度判定、INT8-量化" class="headerlink" title="8.1.1 均值池化、相似度判定、INT8 量化"></a>8.1.1 均值池化、相似度判定、INT8 量化</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">get_pool_sim_triton_simmean_fuse_quant</span>(<span class="params">x, x_mean, block_size, simthreshd1</span>):</span><br><span class="line">    x = x.contiguous()</span><br><span class="line">    B, H, N, D = x.shape</span><br><span class="line">    nblock = (N + block_size - <span class="number">1</span>) // block_size</span><br><span class="line"></span><br><span class="line">    pool = torch.empty((B, H, nblock, D), device=x.device, dtype=x.dtype)</span><br><span class="line">    sim_blocks = torch.empty((B, H, nblock), device=x.device, dtype=torch.<span class="built_in">bool</span>)</span><br><span class="line">    x_quant = torch.empty(x.shape, device=x.device, dtype=torch.int8)</span><br><span class="line">    x_scale = torch.empty((B, H, nblock), device=x.device, dtype=torch.float32)</span><br><span class="line"></span><br><span class="line">    grid = (B, H, nblock)</span><br><span class="line">    triton_bmm_pool_sim_simmean_fuse_quant[grid](</span><br><span class="line">        x, x_mean, pool, sim_blocks, x_quant, x_scale,</span><br><span class="line">        simthreshd1, N=N, D=D, BS=block_size,</span><br><span class="line">        fuse_mean=(<span class="literal">True</span> <span class="keyword">if</span> x_mean <span class="keyword">is</span> <span class="keyword">not</span> <span class="literal">None</span> <span class="keyword">else</span> <span class="literal">False</span>),</span><br><span class="line">    )</span><br><span class="line">    <span class="keyword">return</span> pool, sim_blocks, x_quant, x_scale</span><br></pre></td></tr></table></figure>
+
+<p>这里预分配了四类输出：</p>
+<ul>
+<li><code>pool</code>：每个块的均值池化结果，对 N 方向求平均，形状 <code>(B, H, nblock, D)</code>。</li>
+<li><code>sim_blocks</code>：布尔张量，标记对应块内 token 的平均相似度是否超过阈值。</li>
+<li><code>x_quant</code>：量化后的 <code>x</code>，INT8，形状与 <code>x</code> 相同。</li>
+<li><code>x_scale</code>：每个块的量化缩放因子，float32，形状 <code>(B, H, nblock)</code>。</li>
+</ul>
+<p>“每个块”是指将输入张量 <code>x</code> 在序列长度维度 N 上切分成固定大小为 <code>block_size</code> 的连续块。Triton program 会通过 <code>program_id</code> 算出自己应该处理哪个 batch、哪个 head、哪个序列块，然后加上偏移量找到对应数据。</p>
+<p>Triton kernel：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@triton.jit</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">triton_bmm_pool_sim_simmean_fuse_quant</span>(<span class="params"></span></span><br><span class="line"><span class="params">    x_ptr,</span></span><br><span class="line"><span class="params">    xm_ptr,</span></span><br><span class="line"><span class="params">    pool_ptr,</span></span><br><span class="line"><span class="params">    sim_ptr,</span></span><br><span class="line"><span class="params">    x_quant_ptr,</span></span><br><span class="line"><span class="params">    scale_ptr,</span></span><br><span class="line"><span class="params">    simthreshd1,</span></span><br><span class="line"><span class="params">    N: tl.constexpr,</span></span><br><span class="line"><span class="params">    D: tl.constexpr,</span></span><br><span class="line"><span class="params">    BS: tl.constexpr,</span></span><br><span class="line"><span class="params">    fuse_mean: tl.constexpr,</span></span><br><span class="line"><span class="params"></span>):</span><br><span class="line">    b, h, nb = tl.program_id(<span class="number">0</span>), tl.program_id(<span class="number">1</span>), tl.program_id(<span class="number">2</span>)</span><br><span class="line">    B, H, NB = tl.num_programs(<span class="number">0</span>), tl.num_programs(<span class="number">1</span>), tl.num_programs(<span class="number">2</span>)</span><br><span class="line"></span><br><span class="line">    block_offset = b * H * N * D + h * N * D + nb * BS * D</span><br><span class="line">    xmask = (nb * BS + tl.arange(<span class="number">0</span>, BS)[:, <span class="literal">None</span>]) &lt; N</span><br><span class="line">    x_ptrs = x_ptr + block_offset + tl.arange(<span class="number">0</span>, BS)[:, <span class="literal">None</span>] * D + tl.arange(<span class="number">0</span>, D)[<span class="literal">None</span>, :]</span><br><span class="line">    x = tl.load(x_ptrs, mask=xmask)</span><br><span class="line">    BS_ = BS <span class="keyword">if</span> (N - nb * BS) &gt;= BS <span class="keyword">else</span> (N - nb * BS)</span><br></pre></td></tr></table></figure>
+
+<p><code>b/h/nb</code> 分别表示当前 program 负责的 batch、head、序列块编号。要取的数据是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">x[b, h, nb*BS : nb*BS + BS, :]</span><br></pre></td></tr></table></figure>
+
+<p>对应起始偏移：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">b * H * N * D + h * N * D + (nb * BS) * D</span><br></pre></td></tr></table></figure>
+
+<p><code>xmask</code> 用于掩盖最后一个不满 block 的无效 token。<code>x_ptrs[i, j]</code> 指向：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">x[b, h, nb*BS + i, j]</span><br></pre></td></tr></table></figure>
+
+<p>以上都是从内存中 load 出当前 block 的操作。由于多维张量展平成线性内存，再加上 warp 组织方式，所以地址计算看起来比较复杂。</p>
+<p>Smooth 部分：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> fuse_mean:</span><br><span class="line">    xm_ptrs = xm_ptr + b * H * D + h * D + tl.arange(<span class="number">0</span>, D)</span><br><span class="line">    x_mean = tl.load(xm_ptrs)</span><br><span class="line">    x -= x_mean</span><br><span class="line">    x = tl.where(xmask, x, <span class="number">0</span>)</span><br></pre></td></tr></table></figure>
+
+<p>阈值读取：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">cur_h1 = tl.load(simthreshd1 + h)</span><br></pre></td></tr></table></figure>
+
+<p><code>simthreshd1</code> 是长度为 H 的数组，存储每个 head 的相似度阈值。</p>
+<p>转为 float32：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">x_fp32 = x.to(tl.float32)</span><br></pre></td></tr></table></figure>
+
+<p>均值池化：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">pool = (tl.<span class="built_in">sum</span>(x_fp32, axis=<span class="number">0</span>) / BS_)</span><br></pre></td></tr></table></figure>
+
+<p>对 token 维度求和，得到形状 <code>(D,)</code> 的向量，再除以有效 token 数 <code>BS_</code>。这就是该 block 的均值表示。</p>
+<p>L2 归一化：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">x_norm = tl.sqrt(tl.<span class="built_in">sum</span>(x_fp32 * x_fp32, axis=<span class="number">1</span>, keep_dims=<span class="literal">True</span>))</span><br><span class="line">x = (x / x_norm).to(tl.float16)</span><br></pre></td></tr></table></figure>
+
+<p><code>x_fp32 * x_fp32</code> 逐元素平方，然后沿 D 维求和，得到每个 token 的 L2 范数平方。开根号后得到 <code>x_norm</code>，再广播除法，把每个 token 变成单位向量。</p>
+<p>块内平均相似度：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">grams = tl.dot(x, tl.trans(x))</span><br><span class="line">sum_value = tl.<span class="built_in">sum</span>(grams).to(tl.float32)</span><br><span class="line">cur_sim = (sum_value / (BS_ * BS_)) &gt; cur_h1</span><br></pre></td></tr></table></figure>
+
+<p><code>grams</code> 是 <code>(BS, BS)</code> 的 cosine similarity 矩阵。<code>cur_sim=True</code> 表示这个 block 内部 token 彼此比较相似，可以用均值池化向量代表。</p>
+<p>写回 pool 和 sim：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">pool_block_offset = b * H * NB * D + h * NB * D + nb * D</span><br><span class="line">tl.store(pool_ptr + pool_block_offset + tl.arange(<span class="number">0</span>, D), pool)</span><br><span class="line"></span><br><span class="line">sim_offset = b * H * NB + h * NB + nb</span><br><span class="line">tl.store(sim_ptr + sim_offset, cur_sim)</span><br></pre></td></tr></table></figure>
+
+<p>INT8 量化：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">scale = tl.<span class="built_in">max</span>(tl.<span class="built_in">abs</span>(x_fp32)) / <span class="number">127.</span></span><br><span class="line">scale += <span class="number">0.0000001</span></span><br><span class="line"></span><br><span class="line">x_int8 = x_fp32 / scale</span><br><span class="line">x_int8 += <span class="number">0.5</span> * tl.where(x_int8 &gt;= <span class="number">0</span>, <span class="number">1</span>, -<span class="number">1</span>)</span><br><span class="line">x_int8 = x_int8.to(tl.int8)</span><br></pre></td></tr></table></figure>
+
+<p>含义：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">scale = max(abs(x_fp32)) / 127</span><br><span class="line">x_int8 = round(x_fp32 / scale)</span><br><span class="line">x_fp32 ≈ x_int8 * scale</span><br></pre></td></tr></table></figure>
+
+<p>最后写回：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">x_quant_ptrs = x_quant_ptr + block_offset + tl.arange(<span class="number">0</span>, BS)[:, <span class="literal">None</span>] * D + tl.arange(<span class="number">0</span>, D)[<span class="literal">None</span>, :]</span><br><span class="line">scale_ptrs = scale_ptr + b * H * NB + h * NB + nb</span><br><span class="line">tl.store(x_quant_ptrs, x_int8, mask=xmask)</span><br><span class="line">tl.store(scale_ptrs, scale)</span><br></pre></td></tr></table></figure>
+
+<h4 id="8-1-2-Compressed-attention-map"><a href="#8-1-2-Compressed-attention-map" class="headerlink" title="8.1.2 Compressed attention map"></a>8.1.2 Compressed attention map</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">sim_kblocks = sim_kblocks.unsqueeze(-<span class="number">2</span>).expand(-<span class="number">1</span>, -<span class="number">1</span>, nq, -<span class="number">1</span>)</span><br><span class="line">sim_qblocks = sim_qblocks.unsqueeze(-<span class="number">1</span>).expand(-<span class="number">1</span>, -<span class="number">1</span>, -<span class="number">1</span>, nk)</span><br><span class="line">pooled_score = pooled_qblocks @ pooled_kblocks.transpose(-<span class="number">1</span>, -<span class="number">2</span>) * q.shape[-<span class="number">1</span>] ** -<span class="number">0.5</span></span><br><span class="line">pooled_score[~sim_kblocks] = -torch.inf</span><br></pre></td></tr></table></figure>
+
+<p><code>sim_kblocks</code> 原始形状是 <code>[B, H, nk]</code>。<code>True</code> 表示对应 key block 内部 token 比较相似，可以用 mean pooled 向量代表。这里把它扩展到 <code>[B, H, nq, nk]</code>，方便和 <code>pooled_score</code> 对齐。</p>
+<p><code>pooled_score</code> 对应 compressed attention score：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">S_hat = pooled_Q @ pooled_K^T / sqrt(D)</span><br></pre></td></tr></table></figure>
+
+<p>不能可靠合并的 key block 会先被置为 <code>-inf</code>。</p>
+<p>Causal 情况：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> is_causal:</span><br><span class="line">    nq = pooled_qblocks.shape[-<span class="number">2</span>]</span><br><span class="line">    nk = pooled_kblocks.shape[-<span class="number">2</span>]</span><br><span class="line">    empty_mask = torch.empty(nq, nk, device=q.device, dtype=torch.<span class="built_in">bool</span>)</span><br><span class="line">    causal_mask = fill_causal_mask_triton(empty_mask, BLKQ / BLKK)</span><br><span class="line">    pooled_score = pooled_score.masked_fill(~causal_mask[<span class="literal">None</span>, <span class="literal">None</span>, ...], -torch.inf)</span><br></pre></td></tr></table></figure>
+
+<p>这是普通 causal 上三角约束，只是粒度变成了 block。</p>
+<p>之后：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">pooled_score = pooled_score.softmax(-<span class="number">1</span>)</span><br><span class="line">sorted_score = torch.sort(pooled_score, dim=-<span class="number">1</span>, descending=<span class="literal">True</span>)</span><br><span class="line">cdf = torch.cumsum(sorted_score.values, dim=-<span class="number">1</span>)</span><br></pre></td></tr></table></figure>
+
+<p>这一步在每个 query block 上，把 key block 按概率从大到小排序，再做累积和，对应论文中“保留累计概率达到阈值 p 的块”。</p>
+<p>把阈值转成每个 query block 要保留多少个 key block：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">B, H, Q, K = cdf.shape</span><br><span class="line"><span class="keyword">if</span> cdfthreshd <span class="keyword">is</span> <span class="keyword">not</span> <span class="literal">None</span>:</span><br><span class="line">    cdfthreshd_ts = cdfthreshd.view(<span class="number">1</span>, H, <span class="number">1</span>, <span class="number">1</span>)</span><br><span class="line">    cdfthreshd_ts = cdfthreshd_ts.expand(B, -<span class="number">1</span>, Q, <span class="number">1</span>).contiguous()</span><br><span class="line">    num_to_select = torch.searchsorted(cdf, cdfthreshd_ts, right=<span class="literal">True</span>).squeeze(-<span class="number">1</span>)</span><br><span class="line"><span class="keyword">else</span>:</span><br><span class="line">    num_to_select = (topk * K).to(torch.int64).view(<span class="number">1</span>, H, <span class="number">1</span>).expand(B, -<span class="number">1</span>, Q).contiguous()</span><br></pre></td></tr></table></figure>
+
+<h4 id="8-1-3-Fill-functions"><a href="#8-1-3-Fill-functions" class="headerlink" title="8.1.3 Fill functions"></a>8.1.3 Fill functions</h4><p><code>fill_block_map_triton</code> 把每个 query block 选中的 top key blocks 写进 <code>final_map</code>。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@triton.jit</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">triton_fill_block_map_kernel</span>(<span class="params">final_map, num_to_select, sorted_indices, NK: tl.constexpr</span>):</span><br><span class="line">    b, h, q = tl.program_id(<span class="number">0</span>), tl.program_id(<span class="number">1</span>), tl.program_id(<span class="number">2</span>)</span><br><span class="line">    B, H, Q = tl.num_programs(<span class="number">0</span>), tl.num_programs(<span class="number">1</span>), tl.num_programs(<span class="number">2</span>)</span><br><span class="line"></span><br><span class="line">    cur_num_to_select = tl.load(num_to_select + b * H * Q + h * Q + q)</span><br><span class="line">    cur_sorted_idx_ptr = sorted_indices + b * H * Q * NK + h * Q * NK + q * NK</span><br><span class="line">    cur_final_map_ptr = final_map + b * H * Q * NK + h * Q * NK + q * NK</span><br><span class="line"></span><br><span class="line">    cur_num_to_select = (cur_num_to_select + <span class="number">1</span>) <span class="keyword">if</span> cur_num_to_select == <span class="number">0</span> <span class="keyword">else</span> cur_num_to_select</span><br><span class="line">    <span class="keyword">for</span> i <span class="keyword">in</span> <span class="built_in">range</span>(cur_num_to_select):</span><br><span class="line">        cur_idx = tl.load(cur_sorted_idx_ptr + i)</span><br><span class="line">        tl.store(cur_final_map_ptr + cur_idx, <span class="number">1</span>)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">fill_block_map_triton</span>(<span class="params">final_map, num_to_select, sorted_indices</span>):</span><br><span class="line">    final_map = final_map.contiguous()</span><br><span class="line">    num_to_select = num_to_select.contiguous()</span><br><span class="line">    sorted_indices = sorted_indices.contiguous()</span><br><span class="line">    B, H, Q, K = final_map.shape</span><br><span class="line">    grid = (B, H, Q)</span><br><span class="line">    triton_fill_block_map_kernel[grid](final_map, num_to_select, sorted_indices, K)</span><br><span class="line">    <span class="keyword">return</span> final_map</span><br></pre></td></tr></table></figure>
+
+<p><code>fill_causal_mask_triton</code> 生成 block 级 causal mask：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@triton.jit</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">triton_fill_causal_mask</span>(<span class="params">mask, BqdivBk</span>):</span><br><span class="line">    q, k = tl.program_id(<span class="number">0</span>), tl.program_id(<span class="number">1</span>)</span><br><span class="line">    Q, K = tl.num_programs(<span class="number">0</span>), tl.num_programs(<span class="number">1</span>)</span><br><span class="line">    <span class="keyword">if</span> k &gt;= (q + <span class="number">1</span>) * BqdivBk:</span><br><span class="line">        tl.store(mask + q * K + k, <span class="number">0</span>)</span><br><span class="line">    <span class="keyword">else</span>:</span><br><span class="line">        tl.store(mask + q * K + k, <span class="number">1</span>)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">fill_causal_mask_triton</span>(<span class="params">mask, BqdivBk: <span class="built_in">float</span></span>):</span><br><span class="line">    <span class="keyword">assert</span> mask.dim() == <span class="number">2</span></span><br><span class="line">    triton_fill_causal_mask[mask.shape](mask, BqdivBk)</span><br><span class="line">    <span class="keyword">return</span> mask</span><br></pre></td></tr></table></figure>
+
+<h4 id="8-1-4-Final-map-和-LUT"><a href="#8-1-4-Final-map-和-LUT" class="headerlink" title="8.1.4 Final map 和 LUT"></a>8.1.4 Final map 和 LUT</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">final_map = torch.zeros_like(pooled_score, dtype=torch.<span class="built_in">bool</span>)</span><br><span class="line">final_map[~sim_kblocks] = <span class="number">1</span></span><br><span class="line">final_map[~sim_qblocks] = <span class="number">1</span></span><br><span class="line">final_map = fill_block_map_triton(final_map, num_to_select, sorted_score.indices)</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> is_causal:</span><br><span class="line">    final_map = final_map * causal_mask[<span class="literal">None</span>, <span class="literal">None</span>, ...]</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> attention_sink:</span><br><span class="line">    final_map[:, :, :, <span class="number">0</span>] = <span class="number">1</span></span><br></pre></td></tr></table></figure>
+
+<p>如果 key&#x2F;query block 不适合被压缩代表，那就不要根据 compressed attention 结果来删它，而是直接保留。</p>
+<p><code>fill_block_map_triton</code> 会根据 <code>sorted_score.indices</code> 把 compressed attention 选出的 top key blocks 写入 <code>final_map</code>。</p>
+<p>Causal 情况会把未来上三角区域 mask 掉。</p>
+<p><code>attention_sink</code> 会让所有 query block 都 attend 第一个 key block。</p>
+<p>如果调用方不需要 LUT：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">return</span> final_map, q_int8, q_scale, k_int8, k_scale</span><br></pre></td></tr></table></figure>
+
+<p>如果要真正喂给 CUDA sparse attention kernel，则把 <code>final_map</code> 转成 LUT：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">lut, valid_block_num = block_map_lut_triton(final_map)</span><br><span class="line"><span class="keyword">return</span> lut, valid_block_num, q_int8, q_scale, k_int8, k_scale</span><br></pre></td></tr></table></figure>
+
+<p>示例：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">final_map[b, h, q, :] = [False, True, False, True, True, False]</span><br></pre></td></tr></table></figure>
+
+<p>转换成：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">valid_block_num[b, h, q] = 3</span><br><span class="line">选中了 key block 1, 3, 4</span><br><span class="line">lut[b, h, q, :] = [1, 2, 1, 0, 0, 0]</span><br></pre></td></tr></table></figure>
+
+<p><code>lut</code> 在这里是一种增量编码。</p>
+<h4 id="8-1-5-函数总结"><a href="#8-1-5-函数总结" class="headerlink" title="8.1.5 函数总结"></a>8.1.5 函数总结</h4><p>调用：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">lut, valid_block_num, q_int8, q_scale, k_int8, k_scale = get_block_map_meansim_fuse_quant(</span><br><span class="line">    q, k, km,</span><br><span class="line">    is_causal=is_causal,</span><br><span class="line">    simthreshd1=simthreshd1,</span><br><span class="line">    cdfthreshd=cdfthreshd,</span><br><span class="line">    topk=topk,</span><br><span class="line">    return_lut=<span class="literal">True</span>,</span><br><span class="line">    attention_sink=attention_sink,</span><br><span class="line">    BLKQ=<span class="number">64</span>,</span><br><span class="line">    BLKK=<span class="number">128</span>,</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+
+<p>输入参数：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">q:  [B, H, S, D]</span><br><span class="line">k:  [B, H, S, D]</span><br><span class="line">km: [B, H, 1, D] 或 None</span><br></pre></td></tr></table></figure>
+
+<p>其他参数：</p>
+<ul>
+<li><code>q</code>：原始 query。</li>
+<li><code>k</code>：原始 key。</li>
+<li><code>km</code>：key 的均值，用于 SmoothK，通常是 <code>km = k.mean(dim=-2, keepdim=True)</code>。</li>
+<li><code>is_causal</code>：是否使用 causal attention。如果为 True，会加块级 causal mask。</li>
+<li><code>simthreshd1</code>：块内 token 平均相似度阈值，用来判断一个 block 是否适合用 mean pooling 代表。</li>
+<li><code>cdfthreshd</code>：top-p 阈值。例如 0.9 表示保留 compressed attention 累计概率达到 0.9 的 key blocks。</li>
+<li><code>topk</code>：另一种选择方式，直接保留固定比例的 key blocks。</li>
+<li><code>return_lut=True</code>：不直接返回 bool mask，而是返回 kernel 用的 LUT。</li>
+<li><code>attention_sink</code>：是否强制所有 query block 都 attend 第 0 个 key block。</li>
+<li><code>BLKQ</code>：query block 大小。</li>
+<li><code>BLKK</code>：key block 大小。</li>
+</ul>
+<p>注意：<code>cdfthreshd</code> 和 <code>topk</code> 只能二选一。</p>
+<p>返回值：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">lut</span><br><span class="line">valid_block_num</span><br><span class="line">q_int8</span><br><span class="line">q_scale</span><br><span class="line">k_int8</span><br><span class="line">k_scale</span><br></pre></td></tr></table></figure>
+
+<p>逐个解释：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">q_int8: [B, H, S, D]</span><br></pre></td></tr></table></figure>
+
+<p>量化后的 Q。每个 Q block 共享一个 scale。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">q_scale: [B, H, ceil(S / BLKQ)]</span><br></pre></td></tr></table></figure>
+
+<p>每个 Q block 的反量化 scale。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">k_int8: [B, H, S, D]</span><br></pre></td></tr></table></figure>
+
+<p>量化后的 K。如果 <code>km</code> 不为 None，量化前会融合 SmoothK，即量化的是 <code>k - km</code>。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">k_scale: [B, H, ceil(S / BLKK)]</span><br></pre></td></tr></table></figure>
+
+<p>每个 K block 的反量化 scale。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">lut: [B, H, num_q_blocks, num_k_blocks]</span><br></pre></td></tr></table></figure>
+
+<p>稀疏注意力 kernel 用的查找表。它不是 bool mask，而是 key block 的增量编码。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">valid_block_num: [B, H, num_q_blocks]</span><br></pre></td></tr></table></figure>
+
+<p>每个 query block 需要计算多少个 key blocks。</p>
+<p>这个函数一次完成两件事。</p>
+<p>第一，生成 block-sparse attention mask：</p>
+<ul>
+<li>把 Q&#x2F;K 按 block 切分。</li>
+<li>每个 block 做 mean pooling。</li>
+<li>判断 block 内 token 是否相似。</li>
+<li>用 pooled Q&#x2F;K 计算 compressed attention。</li>
+<li>根据 top-p 或 top-k 选择重要 key blocks。</li>
+<li>得到 <code>final_map: [B,H,Q,K]</code>。</li>
+<li>如果 <code>return_lut=True</code>，把 <code>final_map</code> 转成 <code>lut + valid_block_num</code>。</li>
+</ul>
+<p>第二，融合 Q&#x2F;K INT8 量化：</p>
+<ul>
+<li>在 pooling 的同时，把原始 Q&#x2F;K 量化成 <code>q_int8/k_int8</code>。</li>
+<li>这样后面的 CUDA attention kernel 可以直接使用 INT8 QK 计算。</li>
+</ul>
+<h3 id="8-2-函数-2：真正的-sparse-attention-kernel"><a href="#8-2-函数-2：真正的-sparse-attention-kernel" class="headerlink" title="8.2 函数 2：真正的 sparse attention kernel"></a>8.2 函数 2：真正的 sparse attention kernel</h3><p>在获得量化 INT8 的 Q&#x2F;K 与 block mask 后，代码进入真正的 sparse attention 计算。</p>
+<p>Ampere 路径：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> arch <span class="keyword">in</span> (<span class="string">&quot;sm80&quot;</span>, <span class="string">&quot;sm86&quot;</span>, <span class="string">&quot;sm87&quot;</span>):</span><br><span class="line">    qattn.qk_int8_sv_f16_accum_f16_block_sparse_attn_inst_buf_with_pv_threshold(</span><br><span class="line">        q_int8, k_int8, v, o, lut, valid_block_num,</span><br><span class="line">        pvthreshd, q_scale, k_scale, <span class="number">1</span>, <span class="literal">False</span>, <span class="number">1</span>, scale, <span class="number">0</span></span><br><span class="line">    )</span><br></pre></td></tr></table></figure>
+
+<p>Ampere 上 FP8 不够方便，因此走 V 为 FP16 的路线。kernel 内部大致计算：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">score ≈ (q_int8 @ k_int8.T) * q_scale * k_scale * scale</span><br><span class="line">P = softmax(score)</span><br><span class="line">O = P @ V_fp16</span><br></pre></td></tr></table></figure>
+
+<p>函数名拆解：</p>
+<ul>
+<li><code>qk_int8</code>：QK 用 INT8。</li>
+<li><code>sv_f16</code>：softmax probability 乘 V 时，V 是 FP16。</li>
+<li><code>accum_f16</code>：部分累加用 FP16 路线。</li>
+<li><code>block_sparse_attn</code>：块稀疏 attention。</li>
+<li><code>inst_buf</code>：使用 instruction buffer 优化。</li>
+<li><code>with_pv_threshold</code>：带 SpargeAttention 3.4 的 PV 跳过判断。</li>
+</ul>
+<p>其他架构会先把 V 量化成 FP8：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">else</span>:</span><br><span class="line">    b, h_kv, kv_len, head_dim = v.shape</span><br><span class="line">    padded_len = (kv_len + <span class="number">127</span>) // <span class="number">128</span> * <span class="number">128</span></span><br><span class="line"></span><br><span class="line">    v_transposed_permutted = torch.empty(</span><br><span class="line">        (b, h_kv, head_dim, padded_len),</span><br><span class="line">        dtype=v.dtype,</span><br><span class="line">        device=v.device,</span><br><span class="line">    )</span><br><span class="line">    fused.transpose_pad_permute_cuda(v, v_transposed_permutted, <span class="number">1</span>)</span><br><span class="line"></span><br><span class="line">    v_fp8 = torch.empty(v_transposed_permutted.shape, dtype=torch.float8_e4m3fn, device=v.device)</span><br><span class="line">    v_scale = torch.empty((b, h_kv, head_dim), dtype=torch.float32, device=v.device)</span><br><span class="line"></span><br><span class="line">    <span class="comment"># fused.scale_fuse_quant_cuda(v_transposed_permutted, v_fp8, v_scale, kv_len, 448.0, 1)</span></span><br><span class="line">    fused.scale_fuse_quant_cuda(v_transposed_permutted, v_fp8, v_scale, kv_len, <span class="number">2.25</span>, <span class="number">1</span>)</span><br></pre></td></tr></table></figure>
+
+<p>这里先把 <code>kv_len</code> padding 到 128 的倍数。</p>
+<p><code>fused.transpose_pad_permute_cuda</code> 完成：</p>
+<ul>
+<li>transpose：<code>[S, D] -&gt; [D, S]</code></li>
+<li>pad：把 S 补到 128 倍数</li>
+<li>permute：调整内存布局，适配后面的 FP8 PV kernel</li>
+</ul>
+<p>随后 <code>scale_fuse_quant_cuda</code> 把转置&#x2F;padded 后的 V 量化成 FP8。大致逻辑是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">v_fp8 ≈ v_transposed_permutted / v_scale</span><br><span class="line">v_transposed_permutted ≈ v_fp8 * v_scale</span><br></pre></td></tr></table></figure>
+
+<p>其中 <code>2.25</code> 是量化相关的缩放常数。代码里原来有一行被注释掉：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># fused.scale_fuse_quant_cuda(..., 448.0, 1)</span></span><br></pre></td></tr></table></figure>
+
+<p><code>448.0</code> 和 FP8 E4M3 的最大有限值有关；这里改成 <code>2.25</code> 说明实现里可能用了更保守或经验调过的 scale 策略，以避免 V 量化误差过大或溢出。</p>
+<p>然后根据 GPU 和编译条件选择 kernel：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> arch == <span class="string">&quot;sm90&quot;</span>:</span><br><span class="line">    qattn.qk_int8_sv_f8_accum_f32_block_sparse_attn_inst_buf_fuse_v_scale_with_pv_threshold_sm90(</span><br><span class="line">        q_int8, k_int8, v_fp8, o, lut, valid_block_num,</span><br><span class="line">        pvthreshd, q_scale, k_scale, v_scale, <span class="number">1</span>, <span class="literal">False</span>, <span class="number">1</span>, scale, <span class="number">0</span></span><br><span class="line">    )</span><br><span class="line"><span class="keyword">elif</span> SAGE2PP_ENABLED:</span><br><span class="line">    qk_int8_sv_f8_accum_f16_block_sparse_attn_inst_buf_fuse_v_scale_with_pv_threshold(</span><br><span class="line">        q_int8, k_int8, v_fp8, o, lut, valid_block_num,</span><br><span class="line">        pvthreshd, q_scale, k_scale, v_scale, <span class="number">1</span>, <span class="literal">False</span>, <span class="number">1</span>, scale, <span class="number">0</span></span><br><span class="line">    )</span><br><span class="line"><span class="keyword">else</span>:</span><br><span class="line">    qattn.qk_int8_sv_f8_accum_f32_block_sparse_attn_inst_buf_fuse_v_scale_with_pv_threshold(</span><br><span class="line">        q_int8, k_int8, v_fp8, o, lut, valid_block_num,</span><br><span class="line">        pvthreshd, q_scale, k_scale, v_scale, <span class="number">1</span>, <span class="literal">False</span>, <span class="number">1</span>, scale, <span class="number">0</span></span><br><span class="line">    )</span><br></pre></td></tr></table></figure>
+
+<p>三条路径：</p>
+<ul>
+<li><code>arch == &quot;sm90&quot;</code>：Hopper 专用 FP8 路径，PV 累加为 FP32。</li>
+<li><code>SAGE2PP_ENABLED</code>：Sage2++ 开启时走 FP16 accumulation 版本。</li>
+<li><code>else</code>：普通 fallback，通常是 FP8 V + FP32 accumulation。</li>
+</ul>
+<p><code>pvthreshd</code> 是 SpargeAttention 3.4 的 sparse warp online softmax 阈值，用于判断某个 block 的 <code>P @ V</code> 是否可以跳过。</p>
+<h3 id="8-3-输出整理与-sparsity-统计"><a href="#8-3-输出整理与-sparsity-统计" class="headerlink" title="8.3 输出整理与 sparsity 统计"></a>8.3 输出整理与 sparsity 统计</h3><p>最后一段：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> tensor_layout == <span class="string">&#x27;NHD&#x27;</span>:</span><br><span class="line">    o = rearrange(o, <span class="string">&#x27;... H L D -&gt; ... L H D&#x27;</span>)</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> return_sparsity:</span><br><span class="line">    <span class="keyword">if</span> is_causal <span class="keyword">is</span> <span class="literal">False</span>:</span><br><span class="line">        qk_sparsity = <span class="number">1</span> - (valid_block_num.<span class="built_in">float</span>().<span class="built_in">sum</span>()) / (</span><br><span class="line">            lut.size(<span class="number">3</span>) * lut.size(<span class="number">2</span>) * lut.size(<span class="number">0</span>) * lut.size(<span class="number">1</span>)</span><br><span class="line">        )</span><br><span class="line">    <span class="keyword">else</span>:</span><br><span class="line">        qk_sparsity = <span class="number">1</span> - (valid_block_num.<span class="built_in">float</span>().<span class="built_in">sum</span>()) / (</span><br><span class="line">            ((lut.size(<span class="number">3</span>) + <span class="number">2</span>) // <span class="number">2</span>) * lut.size(<span class="number">2</span>) * lut.size(<span class="number">0</span>) * lut.size(<span class="number">1</span>)</span><br><span class="line">        )</span><br><span class="line">    <span class="keyword">return</span> o, qk_sparsity.item()</span><br><span class="line"><span class="keyword">else</span>:</span><br><span class="line">    <span class="keyword">return</span> o</span><br></pre></td></tr></table></figure>
+
+<p>如果输入 layout 是 <code>NHD</code>，kernel 内部会先转成 <code>HND</code> 计算，最后再通过：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">o = rearrange(o, <span class="string">&#x27;... H L D -&gt; ... L H D&#x27;</span>)</span><br></pre></td></tr></table></figure>
+
+<p>把输出恢复成 <code>NHD</code>。</p>
+<p>Sparsity 统计：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">稀疏率 = 1 - 实际计算的 block pair 数 / dense 情况下总 block pair 数</span><br></pre></td></tr></table></figure>
+
+<p>其中：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">valid_block_num.<span class="built_in">float</span>().<span class="built_in">sum</span>()</span><br></pre></td></tr></table></figure>
+
+<p>是真正实际计算的 block pair 数。</p>
+<p>非 causal 情况下，总 block pair 数是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">B * H * Q * K</span><br></pre></td></tr></table></figure>
+
+<p>对应代码：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">lut.size(<span class="number">3</span>) * lut.size(<span class="number">2</span>) * lut.size(<span class="number">0</span>) * lut.size(<span class="number">1</span>)</span><br></pre></td></tr></table></figure>
+
+<p>Causal 情况下，dense baseline 本来就不能看未来，因此分母换成了 causal 可见 block 数的估计。</p>
+<h3 id="8-4-Online-softmax-PV-跳过"><a href="#8-4-Online-softmax-PV-跳过" class="headerlink" title="8.4 Online softmax + PV 跳过"></a>8.4 Online softmax + PV 跳过</h3><p>最重要的部分还没说：online softmax + PV 跳过。</p>
+<p>首先来认识 online softmax。</p>
+<p>（公式待补充）</p>
+<p>（原本的等价性证明待补充）</p>
+<p>（PV省略的关键公式&#x2F;代码代补充）</p>
+<p>对应到 <code>_qattn</code> 绑定：</p>
+<p>太多 C++ 了，只想让 Codex 给我讲，不想记。</p>
+<p>AI批注：这部分对应 SpargeAttention 论文 3.4。代码核心是：先用 LUT 决定哪些 K&#x2F;V block 进入循环；对进入循环的 block 先计算 INT8 QK；再用 FlashAttention 风格的 online softmax 维护 <code>m/d/O</code>；最后用 <code>local_max_diff + pv_threshold &gt; 0</code> 判断当前 block 的 <code>P_ij V_j</code> 是否足够大，若太小则跳过 PV。</p>
+<hr>
+<h2 id="9-SLA-系列"><a href="#9-SLA-系列" class="headerlink" title="9. SLA 系列"></a>9. SLA 系列</h2><p>（待更新）</p>
+<hr>
+<h2 id="10-后续想法与实验"><a href="#10-后续想法与实验" class="headerlink" title="10. 后续想法与实验"></a>10. 后续想法与实验</h2><p>Mask 在跨 layer&#x2F;step 的复用问题，稳定性结构。</p>
+<p>Prompt（instance）对于 tiling 的指导也许并非 input 无关。</p>
+<p>但是 prompt 对稀疏程度（level）和 block 选择（attend which ones）的指导似乎并没有那么明显，而且直接使用当前 QK，直觉上效果会更好。</p>
+<p>首先需要像 Veda 中那样，在构建 oracle mask 之前先 tiling。</p>
+<p>接下来是跨 step 实验：想把同一 layer&#x2F;head 在不同 step 的 oracle mask heatmap 存下来，以直观展示随着 step 变化，mask 以及 attention pattern 如何变化。</p>
+<p>（实验结果）</p>
+<p>那其实我们可以从一开始就决定好每个 <code>layer + head</code> 的 mask 结构，并且 offline profile 出每一个 step 需要的 sparsity，甚至不需要 prompt 与每一层之前的 QK 参与。</p>
+<h3 id="10-1-三种候选方案"><a href="#10-1-三种候选方案" class="headerlink" title="10.1 三种候选方案"></a>10.1 三种候选方案</h3><p>A. Fully static:</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">M_&#123;l,h,s&#125; only depends on layer/head/step.</span><br></pre></td></tr></table></figure>
+
+<p>B. Static structure + dynamic budget:</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">pattern 固定，但 k 根据 step 或轻量统计变化。</span><br></pre></td></tr></table></figure>
+
+<p>C. Static candidate set + dynamic refinement:</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">offline 给出候选 key tiles，再用当前 QK/token 特征在候选内选择。</span><br></pre></td></tr></table></figure>
+
+<p>A 可以验证核心假设是否成立。</p>
+<p>C 更可能成为真正可用的方法，因为它保留了大部分省时收益，同时允许 instance-specific 修正。</p>
+<h3 id="10-2-方向判断"><a href="#10-2-方向判断" class="headerlink" title="10.2 方向判断"></a>10.2 方向判断</h3><p>静态先验 + 动态修正？这是一个待扩展的不成熟想法，更适合用来讲故事。</p>
+<p>Tile 的选择可能是个问题。无论是 static 还是 dynamic mask 都避免不了这个问题。tile 选大了粗粒度太高，选小了算得麻烦（也许？）。更何况不同位置可能会有不同形状的最优 tile，详见 Sparge Attention 的 Hilbert 映射与合并 block。</p>
+<p>简单粗暴一点：有没有办法验证不同 prompt 的最优 tile 形状应该是不同的？以及这个最优 tile 除了用 output MSE 的方式来监督，还能不能用别的方法正向主动选择？</p>
+<p>并不是一个被认可的方向……</p>
+<p>读了一些代码，学习 Triton 算子的写法。</p>
+</div>
+  <nav class="novel-chapter-bar novel-chapter-bar--waizhuan" aria-label="外传导航">
+    <a class="novel-chapter-bar__toc" href="/bigyellowduck/waizhuan/">← 返回外传列表</a>
+  </nav>
+  
+
+<section class="novel-comments" aria-label="评论与反馈">
+  <h2 class="novel-comments__title">读者反馈</h2>
+  <p class="novel-comments__hint">使用 GitHub 登录后即可发表评论（需仓库已开启 Discussions）。</p>
+  <div class="giscus-wrap">
+    <script src="https://giscus.app/client.js"
+      data-repo="TheoHNO325/bigyellowduck"
+      data-repo-id="R_kgDOR5ns5A"
+      data-category="General"
+      data-category-id="DIC_kwDOR5ns5M4C6Ftu"
+      data-mapping="pathname"
+      data-strict="0"
+      data-reactions-enabled="1"
+      data-emit-metadata="0"
+      data-input-position="bottom"
+      data-theme="preferred_color_scheme"
+      data-lang="zh-CN"
+      data-loading="lazy"
+      crossorigin="anonymous"
+      async>
+    </script>
+  </div>
+</section>
+
+
+</article>
+
+
+  </div>
+  <footer class="novel-footer">
+  <p>
+    <span class="novel-footer__title">当大黄鸭被发现在四大发明广场</span>
+    
+    
+  </p>
+  <p class="novel-footer__hexo">
+    <span>由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> 生成</span>
+  </p>
+</footer>
+
+  
+  <div class="novel-theme-flash" id="novel-theme-flash" aria-hidden="true"></div>
+  <script src="/bigyellowduck/js/novel.js"></script>
+</body>
+</html>

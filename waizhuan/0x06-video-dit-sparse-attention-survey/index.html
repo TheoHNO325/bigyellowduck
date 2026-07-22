@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>大黄鸭科研外传：视频 DiT 稀疏 Attention 方法谱系 | 当大黄鸭被发现在四大发明广场</title>
+
+<meta name="author" content="HNO3">
+
+
+<meta name="description" content="当大黄鸭被发现在四大发明广场 — 原创小说线上阅读">
+
+<link rel="stylesheet" href="/bigyellowduck/css/novel.css">
+<style>
+  :root {
+    --novel-max-width: 42rem;
+    --novel-duck-bg-image: url('/bigyellowduck/images/dahuangya.jpg');
+  }
+</style>
+
+<body class="novel-body">
+  
+  <div class="novel-read-progress" id="read-progress" aria-hidden="true"></div>
+  <header class="novel-header">
+  <div class="novel-header__inner">
+    <a class="novel-brand" href="/bigyellowduck/">当大黄鸭被发现在四大发明广场</a>
+    
+    <nav class="novel-nav" aria-label="站点">
+      
+      <a href="/bigyellowduck/">封面</a>
+      
+      <a href="/bigyellowduck/read/">目录</a>
+      
+      <a href="/bigyellowduck/waizhuan/">外传</a>
+      
+    </nav>
+    
+    <div class="novel-tools" role="toolbar" aria-label="阅读设置">
+      <button type="button" class="novel-tool" data-read-mode="light" title="亮色">亮</button>
+      <button type="button" class="novel-tool" data-read-mode="sepia" title="护眼">护</button>
+      <button type="button" class="novel-tool" data-read-mode="dark" title="暗色">暗</button>
+      <button type="button" class="novel-tool novel-tool--duck" data-duck-toggle title="大黄鸭背景">鸭</button>
+      <span class="novel-tools__sep" aria-hidden="true">|</span>
+      <button type="button" class="novel-tool" data-font="-1" title="减小字号">A−</button>
+      <button type="button" class="novel-tool" data-font="1" title="增大字号">A+</button>
+    </div>
+  </div>
+</header>
+
+  <div class="novel-wrap">
+    
+
+<nav class="novel-chapter-rail" id="novel-chapter-rail" aria-label="当前文章">
+  <span class="novel-chapter-rail__text">大黄鸭科研外传：视频 DiT 稀疏 Attention 方法谱系</span>
+</nav>
+<article class="novel-post novel-post--waizhuan novel-main" itemscope itemtype="https://schema.org/Article">
+  <header class="novel-post__head" id="novel-post-head">
+    <p class="novel-post__series">大黄鸭 · 外传</p>
+    <h1 class="novel-post__title" itemprop="headline">大黄鸭科研外传：视频 DiT 稀疏 Attention 方法谱系</h1>
+    <p class="novel-post__meta novel-post__meta--waizhuan">
+      <time datetime="2026-07-06" itemprop="datePublished">2026-07-06</time>
+      
+      <span class="novel-post__author" itemprop="author">文 / gpt5.5medium</span>
+      
+    </p>
+  </header>
+  <div class="novel-post__content" itemprop="articleBody"><p>如果把视频 DiT 的 sparse attention 方法排成一张地图，它们大致是在回答同一个问题：</p>
+<blockquote>
+<p>给定 dense attention 矩阵，哪些连接值得精确计算，哪些连接可以近似，哪些连接可以跳过？</p>
+</blockquote>
+<p>不同论文的差别，在于它们相信的“重要性来源”不同。有的相信时空结构，有的相信距离衰减，有的相信语义聚类，有的相信层级 profile，有的干脆把弱连接交给 linear attention 近似。</p>
+<!-- more -->
+
+<h2 id="1-SVG：head-有空间-时间偏好"><a href="#1-SVG：head-有空间-时间偏好" class="headerlink" title="1. SVG：head 有空间&#x2F;时间偏好"></a>1. SVG：head 有空间&#x2F;时间偏好</h2><p>SVG 的观察是：视频 DiT 的不同 attention head 往往有不同功能。有些 head 主要看同一帧内的空间关系，有些 head 更关注跨帧的时间关系。</p>
+<p>因此 SVG 做了一件很直接的事：在推理时采样少量 token，用候选 sparse attention 输出和 dense attention 输出对比，然后为每个 head 选择 spatial mask 或 temporal mask。</p>
+<p>它的优点是：</p>
+<ul>
+<li>training-free；</li>
+<li>可直接替换已有模型；</li>
+<li>spatial&#x2F;temporal 二分结构清楚；</li>
+<li>在 CogVideoX、HunyuanVideo 等视频模型上能带来实际加速。</li>
+</ul>
+<p>它的局限也清楚：空间&#x2F;时间二分是粗粒度假设。一个物体在不同帧中的同一身份、重复出现的背景元素、复杂运动轨迹，都不一定能被这种简单分类覆盖。</p>
+<p>SVG 适合作为入门第一篇，因为它把视频 attention 的冗余说得很直观：不是每个 head 都需要看完整时空 token。</p>
+<h2 id="2-Radial-Attention：距离越远，保留越少"><a href="#2-Radial-Attention：距离越远，保留越少" class="headerlink" title="2. Radial Attention：距离越远，保留越少"></a>2. Radial Attention：距离越远，保留越少</h2><p>Radial Attention 更像是把一个静态几何先验写进 mask：近帧、近邻区域保留更多 attention；远帧、远距离区域逐渐降低密度。</p>
+<p>它背后的假设是：post-softmax attention 能量会随空间距离和时间距离增加而衰减。于是可以构造一种 radial pattern，让复杂度接近 $\mathcal{O}(N\log N)$。</p>
+<p>它的优点是结构简单，适合长视频和长度外推，也比在线 profiling 更干净。</p>
+<p>但问题在于：距离不是语义。远距离 token 可能保存同一主体的身份信息，也可能保存全局运动线索。静态 mask 越简单，越可能错过内容相关的长程依赖。</p>
+<p>Radial Attention 的启发是：如果先验足够规则，kernel 会更好做；但如果先验太粗，质量风险也会上升。</p>
+<h2 id="3-SVG2：先把语义相近的-token-排到一起"><a href="#3-SVG2：先把语义相近的-token-排到一起" class="headerlink" title="3. SVG2：先把语义相近的 token 排到一起"></a>3. SVG2：先把语义相近的 token 排到一起</h2><p>SVG2 认为，空间位置不足以判断 attention 重要性。它引入 semantic-aware permutation：先对 $Q,K,V$ 特征聚类，把语义相近的 token 重排到连续内存区域，再做 block sparse attention。</p>
+<p>聚类后，可以用 cluster-level score 近似 token-level attention：</p>
+<p>$$<br>s_{cr}&#x3D;\frac{\mu_c^Q(\mu_r^K)^\top}{\sqrt d}.<br>$$</p>
+<p>这里 $\mu_c^Q$ 是 query cluster 的中心，$\mu_r^K$ 是 key cluster 的中心。这样做的好处是 critical token 不再零散分布，GPU block 计算浪费更少。</p>
+<p>SVG2 相比 SVG 的进步在于：它不只问“这是空间 head 还是时间 head”，而是进一步问“哪些 token 在语义上应该被放到一起”。</p>
+<p>代价是系统复杂度明显增加：聚类、重排、动态 cluster size、自定义 kernel 都进入推理路径。对于实际部署来说，这些额外开销必须被 attention 计算节省抵消。</p>
+<h2 id="4-SVOO：离线-profile-层级稀疏，在线做-Q-K-双向聚类"><a href="#4-SVOO：离线-profile-层级稀疏，在线做-Q-K-双向聚类" class="headerlink" title="4. SVOO：离线 profile 层级稀疏，在线做 Q-K 双向聚类"></a>4. SVOO：离线 profile 层级稀疏，在线做 Q-K 双向聚类</h2><p>SVOO 的关键判断有两个。</p>
+<p>第一，不同层、不同 head 的稀疏容忍度不同。有些层 attention 很尖锐，容易剪；有些层更平坦，不能激进剪。</p>
+<p>第二，这种稀疏特性在不同输入上相对稳定。因此可以离线用 calibration prompts 估计每层&#x2F;每头的稀疏度，再在推理时复用。</p>
+<p>SVOO 的 offline profiling 会看 attention mass 覆盖。例如对每一行 attention，把 key 权重排序，取最短前缀覆盖阈值 $\tau$，论文中常见设定是 $\tau&#x3D;0.95$。需要保留的比例越低，说明这一层&#x2F;头越容易稀疏。</p>
+<p>online 阶段则做 QK bidirectional co-clustering。原因是 key 的合理分组依赖 query，query 的合理分组也依赖 key。只独立聚类 Q 或 K，会忽略 $QK^\top$ 的耦合结构。</p>
+<p>最后得到 block-level dynamic map：</p>
+<p>$$<br>\text{dynamic_map}\in{0,1}^{B\times H\times K_q\times K_k}.<br>$$</p>
+<p>这个 map 决定哪些 query cluster 和 key cluster 之间要真实计算 attention。</p>
+<p>SVOO 的优势是同时利用 layer-wise stability 和 Q-K coupling。它的代价是需要离线 profile，推理时还要做在线 co-clustering，代码理解门槛也更高。</p>
+<h2 id="5-SLA：不要把-marginal-attention-直接扔掉"><a href="#5-SLA：不要把-marginal-attention-直接扔掉" class="headerlink" title="5. SLA：不要把 marginal attention 直接扔掉"></a>5. SLA：不要把 marginal attention 直接扔掉</h2><p>纯 sparse 方法通常是二元选择：一个 block 要么精确算，要么跳过。但 SLA 指出，很多 marginal blocks 单个权重不大，累积贡献却可能不可忽略。</p>
+<p>因此 SLA 把 blocks 分成三类：</p>
+<ul>
+<li>critical：精确 sparse attention；</li>
+<li>marginal：linear attention 近似；</li>
+<li>negligible：跳过。</li>
+</ul>
+<p>形式上可以写成：</p>
+<p>$$<br>O &#x3D; O_{\mathrm{critical}} + O_{\mathrm{marginal}}.<br>$$</p>
+<p>marginal 部分用 feature map $\phi(\cdot)$ 做 linear attention 近似：</p>
+<p>$$<br>O_{\mathrm{marginal}}<br>\approx<br>\frac{\phi(Q)\left(\phi(K_\mathcal{M})^\top V_\mathcal{M}\right)}<br>{\phi(Q)\left(\phi(K_\mathcal{M})^\top \mathbf{1}\right)}.<br>$$</p>
+<p>这比 hard pruning 更细腻：弱连接不是全丢，而是用更便宜的方式保留整体贡献。</p>
+<p>它的缺点是部署不如 training-free 方法直接，通常需要微调和专用 kernel。</p>
+<h2 id="6-TurboDiffusion：attention-只是系统加速的一部分"><a href="#6-TurboDiffusion：attention-只是系统加速的一部分" class="headerlink" title="6. TurboDiffusion：attention 只是系统加速的一部分"></a>6. TurboDiffusion：attention 只是系统加速的一部分</h2><p>TurboDiffusion 把问题推到系统层面。它不只依赖 sparse&#x2F;linear attention，还结合 step distillation、量化、fused kernels 等手段，目标是极高端到端加速。</p>
+<p>这类工作很重要，因为它提醒我们：用户最终关心的是生成一个视频要多久，而不是单个 attention kernel 的理论复杂度。</p>
+<p>但它也带来归因困难。质量和速度来自多个技术叠加，很难单独判断某个 attention 近似到底贡献了多少。</p>
+<h2 id="7-横向比较"><a href="#7-横向比较" class="headerlink" title="7. 横向比较"></a>7. 横向比较</h2><table>
+<thead>
+<tr>
+<th>方法</th>
+<th>主要先验</th>
+<th align="right">是否 training-free</th>
+<th>优势</th>
+<th>风险</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>SVG</td>
+<td>head 的空间&#x2F;时间偏好</td>
+<td align="right">是</td>
+<td>简单直接，替换方便</td>
+<td>二分假设粗</td>
+</tr>
+<tr>
+<td>Radial</td>
+<td>时空距离衰减</td>
+<td align="right">可训练&#x2F;可推理使用</td>
+<td>结构规则，适合长视频</td>
+<td>远距离语义可能被削弱</td>
+</tr>
+<tr>
+<td>SVG2</td>
+<td>语义相近 token 应连续</td>
+<td align="right">是</td>
+<td>critical token 更集中</td>
+<td>聚类与重排开销高</td>
+</tr>
+<tr>
+<td>SVOO</td>
+<td>层级稀疏稳定 + QK 耦合</td>
+<td align="right">是</td>
+<td>稀疏预算更细，选择更自适应</td>
+<td>需要 profile 和在线聚类</td>
+</tr>
+<tr>
+<td>SLA</td>
+<td>marginal attention 有累积贡献</td>
+<td align="right">否</td>
+<td>高稀疏率下更稳</td>
+<td>需要微调和 kernel</td>
+</tr>
+<tr>
+<td>TurboDiffusion</td>
+<td>系统联合优化</td>
+<td align="right">否</td>
+<td>端到端速度极高</td>
+<td>归因困难，工程重</td>
+</tr>
+</tbody></table>
+<h2 id="8-我的阶段性判断"><a href="#8-我的阶段性判断" class="headerlink" title="8. 我的阶段性判断"></a>8. 我的阶段性判断</h2><p>这个方向最核心的矛盾是：越精确的 sparse decision，往往越动态、越复杂、越难跑快；越规则的 sparse pattern，往往越容易部署，但越可能漏掉内容相关依赖。</p>
+<p>所以真正值得研究的不是“再提出一个 mask”，而是找到一个低开销、可执行、质量稳定的中间点。</p>
+<p>我现在更倾向于把问题表述为：</p>
+<blockquote>
+<p>如何用尽可能便宜的统计或聚类信号，构造出 GPU 友好的 block sparse pattern，并在 marginal 信息上避免过度删除？</p>
+</blockquote>
+<p>这个表述把算法、kernel 和生成质量绑在了一起，也更接近视频 DiT 稀疏 attention 的真实难点。</p>
+</div>
+  <nav class="novel-chapter-bar novel-chapter-bar--waizhuan" aria-label="外传导航">
+    <a class="novel-chapter-bar__toc" href="/bigyellowduck/waizhuan/">← 返回外传列表</a>
+  </nav>
+  
+
+<section class="novel-comments" aria-label="评论与反馈">
+  <h2 class="novel-comments__title">读者反馈</h2>
+  <p class="novel-comments__hint">使用 GitHub 登录后即可发表评论（需仓库已开启 Discussions）。</p>
+  <div class="giscus-wrap">
+    <script src="https://giscus.app/client.js"
+      data-repo="TheoHNO325/bigyellowduck"
+      data-repo-id="R_kgDOR5ns5A"
+      data-category="General"
+      data-category-id="DIC_kwDOR5ns5M4C6Ftu"
+      data-mapping="pathname"
+      data-strict="0"
+      data-reactions-enabled="1"
+      data-emit-metadata="0"
+      data-input-position="bottom"
+      data-theme="preferred_color_scheme"
+      data-lang="zh-CN"
+      data-loading="lazy"
+      crossorigin="anonymous"
+      async>
+    </script>
+  </div>
+</section>
+
+
+</article>
+
+
+  </div>
+  <footer class="novel-footer">
+  <p>
+    <span class="novel-footer__title">当大黄鸭被发现在四大发明广场</span>
+    
+    
+  </p>
+  <p class="novel-footer__hexo">
+    <span>由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> 生成</span>
+  </p>
+</footer>
+
+  
+  <div class="novel-theme-flash" id="novel-theme-flash" aria-hidden="true"></div>
+  <script src="/bigyellowduck/js/novel.js"></script>
+</body>
+</html>

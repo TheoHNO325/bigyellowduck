@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>大黄鸭科研外传：SVOO 复现与代码理解笔记 | 当大黄鸭被发现在四大发明广场</title>
+
+<meta name="author" content="HNO3">
+
+
+<meta name="description" content="当大黄鸭被发现在四大发明广场 — 原创小说线上阅读">
+
+<link rel="stylesheet" href="/bigyellowduck/css/novel.css">
+<style>
+  :root {
+    --novel-max-width: 42rem;
+    --novel-duck-bg-image: url('/bigyellowduck/images/dahuangya.jpg');
+  }
+</style>
+
+<body class="novel-body">
+  
+  <div class="novel-read-progress" id="read-progress" aria-hidden="true"></div>
+  <header class="novel-header">
+  <div class="novel-header__inner">
+    <a class="novel-brand" href="/bigyellowduck/">当大黄鸭被发现在四大发明广场</a>
+    
+    <nav class="novel-nav" aria-label="站点">
+      
+      <a href="/bigyellowduck/">封面</a>
+      
+      <a href="/bigyellowduck/read/">目录</a>
+      
+      <a href="/bigyellowduck/waizhuan/">外传</a>
+      
+    </nav>
+    
+    <div class="novel-tools" role="toolbar" aria-label="阅读设置">
+      <button type="button" class="novel-tool" data-read-mode="light" title="亮色">亮</button>
+      <button type="button" class="novel-tool" data-read-mode="sepia" title="护眼">护</button>
+      <button type="button" class="novel-tool" data-read-mode="dark" title="暗色">暗</button>
+      <button type="button" class="novel-tool novel-tool--duck" data-duck-toggle title="大黄鸭背景">鸭</button>
+      <span class="novel-tools__sep" aria-hidden="true">|</span>
+      <button type="button" class="novel-tool" data-font="-1" title="减小字号">A−</button>
+      <button type="button" class="novel-tool" data-font="1" title="增大字号">A+</button>
+    </div>
+  </div>
+</header>
+
+  <div class="novel-wrap">
+    
+
+<nav class="novel-chapter-rail" id="novel-chapter-rail" aria-label="当前文章">
+  <span class="novel-chapter-rail__text">大黄鸭科研外传：SVOO 复现与代码理解笔记</span>
+</nav>
+<article class="novel-post novel-post--waizhuan novel-main" itemscope itemtype="https://schema.org/Article">
+  <header class="novel-post__head" id="novel-post-head">
+    <p class="novel-post__series">大黄鸭 · 外传</p>
+    <h1 class="novel-post__title" itemprop="headline">大黄鸭科研外传：SVOO 复现与代码理解笔记</h1>
+    <p class="novel-post__meta novel-post__meta--waizhuan">
+      <time datetime="2026-07-06" itemprop="datePublished">2026-07-06</time>
+      
+      <span class="novel-post__author" itemprop="author">文 / gpt5.5medium</span>
+      
+    </p>
+  </header>
+  <div class="novel-post__content" itemprop="articleBody"><p>SVOO 可以先用一句话理解：</p>
+<blockquote>
+<p>它试图在不训练原视频 DiT 的情况下，用离线层级稀疏度估计和在线 Q&#x2F;K 双向聚类，把 dense self-attention 换成更便宜的 block sparse attention。</p>
+</blockquote>
+<p>这篇笔记不是论文复述，而是把我在读论文、读代码、复现实验时最容易混淆的点整理出来。</p>
+<!-- more -->
+
+<h2 id="1-SVOO-替换的是哪一段"><a href="#1-SVOO-替换的是哪一段" class="headerlink" title="1. SVOO 替换的是哪一段"></a>1. SVOO 替换的是哪一段</h2><p>Wan 或 HunyuanVideo 的普通推理流程大致是：</p>
+<ol>
+<li>文本 prompt 编码成条件 embedding；</li>
+<li>初始化视频 latent 噪声；</li>
+<li>scheduler 给出 denoising timesteps；</li>
+<li>transformer 在每一步处理 noisy latent tokens、时间步和文本条件；</li>
+<li>VAE decoder 把 latent 解码成视频帧。</li>
+</ol>
+<p>SVOO 不改变这个 pipeline 的训练权重，也不是重新训练一个新模型。它主要替换 transformer block 里的 self-attention。</p>
+<p>原始 attention 是：</p>
+<p>$$<br>O&#x3D;\operatorname{softmax}\left(\frac{QK^\top}{\sqrt d}\right)V.<br>$$</p>
+<p>SVOO 的目标是少算一部分 $QK^\top$ 和后续 $AV$，但让输出尽量接近 dense attention。</p>
+<h2 id="2-为什么要-offline-profile"><a href="#2-为什么要-offline-profile" class="headerlink" title="2. 为什么要 offline profile"></a>2. 为什么要 offline profile</h2><p>SVOO 的一个核心观察是：不同 layer&#x2F;head 的 attention 稀疏性差异很大，但这种差异在不同 prompt 上相对稳定。</p>
+<p>也就是说，有些层天然可以剪得多一些，有些层不行。如果对所有层用统一稀疏率，就会出现两个问题：</p>
+<ul>
+<li>对容易稀疏的层太保守，浪费计算；</li>
+<li>对不能稀疏的层太激进，损害质量。</li>
+</ul>
+<p>因此 SVOO 先在少量 calibration inputs 上跑 dense attention，统计每个 step、layer、head 的稀疏容忍度。</p>
+<p>直观做法是看每行 attention mass。对每个 query，把所有 key 的 attention 权重从大到小排序，取最短前缀，让累计权重覆盖阈值 $\tau$：</p>
+<p>$$<br>\sum_{j\in S(i)}A(i,j)\ge \tau.<br>$$</p>
+<p>如果覆盖 95% attention mass 只需要很少 key，说明这行 attention 很尖锐，比较容易稀疏。如果需要大量 key，说明 attention 更平坦，不能随便剪。</p>
+<h2 id="3-profile-文件和代码里的含义要分清"><a href="#3-profile-文件和代码里的含义要分清" class="headerlink" title="3. profile 文件和代码里的含义要分清"></a>3. profile 文件和代码里的含义要分清</h2><p>论文语义里的 sparsity 容易让人以为它直接表示“剪掉多少 attention entries”。但在代码路径里，profile CSV 的值会进入 runtime 参数，常见地被当作 <code>min_kc_ratio</code> 之类的约束使用。</p>
+<p>这件事很关键。</p>
+<p>如果 profile 文件里有：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Step,Layer,Head,Sparsity</span><br></pre></td></tr></table></figure>
+
+<p>那么它不一定直接等价于最终 token density，也不一定直接等价于最终实际计算量。它还会受到这些因素影响：</p>
+<ul>
+<li>top-p cluster selection；</li>
+<li>query&#x2F;key cluster size 分布；</li>
+<li>early full-attention steps；</li>
+<li>early full-attention layers；</li>
+<li>cluster reuse；</li>
+<li>kernel 的 block 粒度。</li>
+</ul>
+<p>因此复现实验时不能只看 CSV 里的 sparsity 数字。要追踪它在代码中如何变成 per-head runtime 约束，再看最终 dynamic map 保留了多少 block。</p>
+<h2 id="4-Online-QK-co-clustering-在做什么"><a href="#4-Online-QK-co-clustering-在做什么" class="headerlink" title="4. Online QK co-clustering 在做什么"></a>4. Online QK co-clustering 在做什么</h2><p>推理时，SVOO 拿到每层的 $Q,K,V$ 后，不是直接在 token 级别选择 mask，而是先把 query tokens 和 key tokens 聚成 clusters。</p>
+<p>为什么要双向聚类？</p>
+<p>因为 key 的最佳分组依赖 query。对于某个 query $q$，两个 key $k_1,k_2$ 是否相似，取决于：</p>
+<p>$$<br>q^\top k_1 \approx q^\top k_2<br>$$</p>
+<p>也就是：</p>
+<p>$$<br>q^\top(k_1-k_2)\approx 0.<br>$$</p>
+<p>这个相似性不是 key 自己单独决定的。同理，query 的分组也依赖 key。于是 SVOO 使用 QK bidirectional co-clustering，而不是独立聚类 Q 或 K。</p>
+<p>聚类后，用 centroid-level score 估计 cluster 之间的重要性：</p>
+<p>$$<br>s_{cr}&#x3D;\frac{\mu_c^Q(\mu_r^K)^\top}{\sqrt d}.<br>$$</p>
+<p>这里 $c$ 是 query cluster，$r$ 是 key cluster。</p>
+<h2 id="5-dynamic-map-才是真正的-sparse-pattern"><a href="#5-dynamic-map-才是真正的-sparse-pattern" class="headerlink" title="5. dynamic map 才是真正的 sparse pattern"></a>5. dynamic map 才是真正的 sparse pattern</h2><p>聚类之后，SVOO 会生成一个 block 级别的布尔图：</p>
+<p>$$<br>\text{dynamic_map}\in{0,1}^{B\times H\times K_q\times K_k}.<br>$$</p>
+<p>如果 <code>dynamic_map[b,h,c,r]=1</code>，表示 batch 中第 $b$ 个样本、第 $h$ 个 head、第 $c$ 个 query cluster 会和第 $r$ 个 key cluster 真实计算 attention。</p>
+<p>如果是 0，这个 block pair 就跳过。</p>
+<p>这一步比 token-level mask 更重要，因为 GPU kernel 需要的是规则 block。只是在 Python 里造一个任意稀疏矩阵，通常不会真的快。</p>
+<h2 id="6-early-dense-steps-和-early-dense-layers-不只是保守设置"><a href="#6-early-dense-steps-和-early-dense-layers-不只是保守设置" class="headerlink" title="6. early dense steps 和 early dense layers 不只是保守设置"></a>6. early dense steps 和 early dense layers 不只是保守设置</h2><p>在 Wan 这类视频 DiT pipeline 中，早期 denoising steps 和部分浅层 block 对全局结构影响很大。SVOO 代码和实验通常会保留一部分 early steps &#x2F; early layers 的 full attention。</p>
+<p>复现实验里常见的参数如：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">first_times_fp</span><br><span class="line">first_layers_fp</span><br></pre></td></tr></table></figure>
+
+<p>本质是在控制哪些时间步、哪些层仍然使用 full attention。</p>
+<p>这不是无关紧要的实现细节。它会显著影响生成质量和加速比。如果 early dense 范围太大，速度收益下降；如果太小，质量可能明显不稳。</p>
+<h2 id="7-SVOO-baseline-和-dense-baseline-的区别"><a href="#7-SVOO-baseline-和-dense-baseline-的区别" class="headerlink" title="7. SVOO baseline 和 dense baseline 的区别"></a>7. SVOO baseline 和 dense baseline 的区别</h2><p>复现实验时要严格区分：</p>
+<p><strong>dense baseline</strong>：原始 Wan&#x2F;HunyuanVideo pipeline，不替换 attention。</p>
+<p><strong>official SVOO baseline</strong>：使用原始 pipeline 和 checkpoint，但把 self-attention processor 替换为 SVOO 的 sparse attention 路径，并使用官方&#x2F;论文默认的 profile、co-clustering、top-p、early dense 设置和 sparse kernel。</p>
+<p>所以 SVOO baseline 不是“另一个训练好的模型”，而是“同一个模型在推理时换了 attention 算子”。</p>
+<p>评测时通常比较：</p>
+<ul>
+<li>sparse 输出和 dense 输出的接近程度：PSNR、SSIM、LPIPS；</li>
+<li>生成视频整体质量：VBench、VisionReward、人工观察；</li>
+<li>系统效率：latency、speedup、显存。</li>
+</ul>
+<h2 id="8-我现在对-SVOO-的理解"><a href="#8-我现在对-SVOO-的理解" class="headerlink" title="8. 我现在对 SVOO 的理解"></a>8. 我现在对 SVOO 的理解</h2><p>SVOO 的价值在于，它把 sparse attention 从“凭直觉画 mask”推进到更细的层级：</p>
+<ul>
+<li>每层&#x2F;每头应该稀疏多少，由 offline profile 给出；</li>
+<li>每次推理哪些 block 重要，由 online co-clustering 决定；</li>
+<li>最终是否真快，取决于 block sparse kernel 能不能吃下这个 pattern。</li>
+</ul>
+<p>它的难点也在这里：profile、聚类、top-p、min ratio、early dense、kernel 全部耦合。一个参数看似只影响稀疏率，实际可能同时改变质量、延迟和 block 形状。</p>
+<p>所以复现 SVOO 时，不要急着只跑最终指标。更好的顺序是：</p>
+<ol>
+<li>先确认 dense pipeline 输出正常；</li>
+<li>再确认 attention processor 确实被替换；</li>
+<li>打印每层&#x2F;每头 profile 值如何进入 runtime；</li>
+<li>统计 dynamic map 的真实 block density；</li>
+<li>最后再看视频质量和 latency。</li>
+</ol>
+<p>对新手来说，这比直接调一堆 sparsity 参数更可靠。</p>
+</div>
+  <nav class="novel-chapter-bar novel-chapter-bar--waizhuan" aria-label="外传导航">
+    <a class="novel-chapter-bar__toc" href="/bigyellowduck/waizhuan/">← 返回外传列表</a>
+  </nav>
+  
+
+<section class="novel-comments" aria-label="评论与反馈">
+  <h2 class="novel-comments__title">读者反馈</h2>
+  <p class="novel-comments__hint">使用 GitHub 登录后即可发表评论（需仓库已开启 Discussions）。</p>
+  <div class="giscus-wrap">
+    <script src="https://giscus.app/client.js"
+      data-repo="TheoHNO325/bigyellowduck"
+      data-repo-id="R_kgDOR5ns5A"
+      data-category="General"
+      data-category-id="DIC_kwDOR5ns5M4C6Ftu"
+      data-mapping="pathname"
+      data-strict="0"
+      data-reactions-enabled="1"
+      data-emit-metadata="0"
+      data-input-position="bottom"
+      data-theme="preferred_color_scheme"
+      data-lang="zh-CN"
+      data-loading="lazy"
+      crossorigin="anonymous"
+      async>
+    </script>
+  </div>
+</section>
+
+
+</article>
+
+
+  </div>
+  <footer class="novel-footer">
+  <p>
+    <span class="novel-footer__title">当大黄鸭被发现在四大发明广场</span>
+    
+    
+  </p>
+  <p class="novel-footer__hexo">
+    <span>由 <a href="https://hexo.io/" rel="noopener" target="_blank">Hexo</a> 生成</span>
+  </p>
+</footer>
+
+  
+  <div class="novel-theme-flash" id="novel-theme-flash" aria-hidden="true"></div>
+  <script src="/bigyellowduck/js/novel.js"></script>
+</body>
+</html>
