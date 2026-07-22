@@ -465,6 +465,118 @@ a:hover {
 .novel-post__content p:first-of-type {
   text-indent: 0;
 }
+
+.novel-post__content code {
+  font-family: Consolas, "Cascadia Code", "SFMono-Regular", Menlo, Monaco, monospace;
+  font-size: 0.88em;
+  letter-spacing: 0;
+  padding: 0.08em 0.32em;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--novel-accent) 10%, var(--novel-surface));
+  color: color-mix(in srgb, var(--novel-text) 88%, var(--novel-accent));
+  overflow-wrap: break-word;
+}
+
+.novel-post__content figure.highlight {
+  margin: 1.35rem 0;
+  border: 1px solid var(--novel-border);
+  border-radius: 8px;
+  background: #111827;
+  color: #e5e7eb;
+  overflow: auto;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12);
+}
+
+.novel-post__content figure.highlight table {
+  width: 100%;
+  margin: 0;
+  border-collapse: collapse;
+  table-layout: auto;
+}
+
+.novel-post__content figure.highlight td {
+  padding: 0;
+  border: 0;
+  vertical-align: top;
+}
+
+.novel-post__content figure.highlight pre {
+  margin: 0;
+  padding: 1rem 0;
+  font-family: Consolas, "Cascadia Code", "SFMono-Regular", Menlo, Monaco, monospace;
+  font-size: 0.86rem;
+  line-height: 1.65;
+  letter-spacing: 0;
+  white-space: pre;
+  overflow: visible;
+}
+
+.novel-post__content figure.highlight .gutter {
+  width: 3.2rem;
+  user-select: none;
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: #6b7280;
+  text-align: right;
+}
+
+.novel-post__content figure.highlight .gutter pre {
+  padding-right: 0.75rem;
+  padding-left: 0.5rem;
+}
+
+.novel-post__content figure.highlight .code pre {
+  min-width: max-content;
+  padding-right: 1rem;
+  padding-left: 1rem;
+}
+
+.novel-post__content figure.highlight code,
+.novel-post__content figure.highlight pre code {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  overflow-wrap: normal;
+}
+
+.novel-post__content figure.highlight .keyword {
+  color: #93c5fd;
+}
+
+.novel-post__content figure.highlight .built_in,
+.novel-post__content figure.highlight .title.function_ {
+  color: #fbbf24;
+}
+
+.novel-post__content figure.highlight .string {
+  color: #86efac;
+}
+
+.novel-post__content figure.highlight .number,
+.novel-post__content figure.highlight .literal {
+  color: #c4b5fd;
+}
+
+.novel-post__content figure.highlight .comment {
+  color: #9ca3af;
+  font-style: italic;
+}
+
+html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-main figure.highlight {
+  border-color: rgba(0, 0, 0, 0.18);
+}
+
+html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-main code {
+  background: rgba(24, 86, 201, 0.1);
+  color: #173b7a;
+}
+
+html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-main figure.highlight code {
+  background: transparent;
+  color: inherit;
+}
+
 .novel-post__content blockquote {
   margin: 1.25em 0;
   padding: 1rem 1.15rem 1.05rem 1.35rem;

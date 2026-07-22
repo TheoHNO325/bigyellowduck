@@ -7,7 +7,7 @@ tags:
   - 外传
 waizhuan_section: 诗歌
 author_display: 肖馨桐
-excerpt: 
+excerpt: ""
 ---
 
 ## （一）写一首诗
@@ -62,4 +62,3 @@ excerpt:
 而火车的我将把被碾碎的空气和泥土
 
 照亮的如同白昼
-
