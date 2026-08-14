@@ -2,6 +2,7 @@
   var ip = config.index_generator && config.index_generator.path;
   var catalogPath = (ip && String(ip).length) ? String(ip).replace(/\/$/, '') + '/' : '/';
   var waizhuanPath = theme.waizhuan_url || '/waizhuan/';
+  var poetryPath = theme.poetry_url || '/poetry/';
   var heroImg = theme.home_hero_image || '/images/dahuangya.jpg';
   var heroAuthor = (theme.home_author != null && theme.home_author !== '') ? theme.home_author : (config.author || 'HNO3');
 %>
@@ -9,6 +10,7 @@
   <div class="novel-hero__bg" style="background-image: url('<%- url_for(heroImg) %>')"></div>
   <div class="novel-hero__veil" aria-hidden="true"></div>
   <div class="novel-hero__top-actions">
+    <a class="novel-hero__cta novel-hero__cta--ghost" href="<%- url_for(poetryPath) %>">诗歌</a>
     <a class="novel-hero__cta novel-hero__cta--ghost" href="<%- url_for(waizhuanPath) %>">外传</a>
     <a class="novel-hero__cta" href="<%- url_for(catalogPath) %>">开始阅读</a>
   </div>
@@ -27,14 +29,15 @@
 
       <div class="duck-game__overlay duck-game__overlay--start" id="duck-game-start">
         <p class="duck-game__overlay-title">🚴 开始骑行</p>
-        <p class="duck-game__overlay-sub">躲开同向与相向的车手，别被撞倒！</p>
+        <p class="duck-game__overlay-sub">限时骑到终点教学楼——赶早八！</p>
         <ul class="duck-game__hint">
           <li><b>W / S</b> — 上 / 下换道</li>
-          <li><b>Z</b> — 撞飞对方（自损 0.5 血）</li>
+          <li><b>Z</b> — 撞到前按下，撞飞车手不扣血</li>
+          <li><b>X</b> — 贴到汽车旁讨牛奶/香蕉加速</li>
           <li><b>P</b> — 暂停</li>
         </ul>
         <button class="duck-game__btn" id="duck-game-start-btn" type="button">开始游戏</button>
-        <p class="duck-game__overlay-tip">或按 Enter 开始</p>
+        <p class="duck-game__overlay-tip">或按 Enter 开始 · 在 65 秒内到达即为「赶早八成功」</p>
       </div>
 
       <div class="duck-game__overlay duck-game__overlay--over" id="duck-game-over" hidden>
@@ -50,9 +53,18 @@
         <button class="duck-game__btn" id="duck-game-resume-btn" type="button">继续游戏</button>
       </div>
 
+      <div class="duck-game__overlay duck-game__overlay--finish" id="duck-game-finish" hidden>
+        <p class="duck-game__overlay-title" id="duck-game-finish-title"></p>
+        <p class="duck-game__overlay-sub" id="duck-game-finish-sub"></p>
+        <p class="duck-game__stats" id="duck-game-finish-stats"></p>
+        <button class="duck-game__btn" id="duck-game-finish-btn" type="button">再玩一次</button>
+        <p class="duck-game__overlay-tip">或按 Enter 再来一局</p>
+      </div>
+
       <div class="duck-game__touch" id="duck-game-touch" hidden>
         <button class="duck-game__touch-btn" data-touch="up" type="button" aria-label="向上换道">▲</button>
         <button class="duck-game__touch-btn" data-touch="z" type="button" aria-label="撞飞">💥</button>
+        <button class="duck-game__touch-btn" data-touch="x" type="button" aria-label="向汽车讨要食物">🥛</button>
         <button class="duck-game__touch-btn" data-touch="down" type="button" aria-label="向下换道">▼</button>
       </div>
     </div>

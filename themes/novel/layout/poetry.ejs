@@ -1,0 +1,43 @@
+<section class="novel-waizhuan-index novel-main">
+  <header class="novel-waizhuan-intro">
+    <h1 class="novel-waizhuan-intro__title"><%= page.title %></h1>
+    <% if (page.content && page.content.trim()) { %>
+    <div class="novel-post__content novel-waizhuan-intro__body"><%- page.content %></div>
+    <% } %>
+  </header>
+<%
+  var tagName = theme.poetry_tag || '诗歌';
+  var coll = site.tags.findOne({name: tagName});
+  var list = [];
+  if (coll && coll.length) {
+    coll.posts.sort('source', 1).each(function (p) { list.push(p); });
+  }
+%>
+  <% if (!list.length) { %>
+  <p class="novel-waizhuan-empty">暂未有诗歌条目。</p>
+  <% } %>
+  <section class="novel-waizhuan-board" aria-labelledby="poetry-board">
+    <h2 class="novel-waizhuan-board__title" id="poetry-board">
+      <button type="button" class="novel-waizhuan-board__toggle" data-waizhuan-toggle aria-expanded="true" aria-controls="poetry-board-panel">
+        <span class="novel-waizhuan-board__name">诗歌</span>
+        <span class="novel-waizhuan-board__mark" aria-hidden="true"></span>
+      </button>
+    </h2>
+    <div class="novel-waizhuan-board__grid" id="poetry-board-panel">
+      <% list.forEach(function (p) { %>
+      <article class="novel-waizhuan-card novel-card">
+        <h3 class="novel-waizhuan-card__title">
+          <a href="<%- url_for(p.path) %>"><%= p.title %></a>
+        </h3>
+        <% if (p.author_display) { %>
+        <p class="novel-waizhuan-card__author">文 / <%= p.author_display %></p>
+        <% } %>
+        <time class="novel-card__time" datetime="<%= post_date_literal(p) %>"><%= post_date_literal(p) %></time>
+        <% if (p.excerpt) { %>
+        <p class="novel-waizhuan-card__excerpt"><%- strip_html(p.excerpt).substring(0, 120) %><%= strip_html(p.excerpt).length > 120 ? '…' : '' %></p>
+        <% } %>
+      </article>
+      <% }); %>
+    </div>
+  </section>
+</section>

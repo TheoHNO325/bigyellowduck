@@ -46,8 +46,14 @@ waizhuan_tag: '外传'
 waizhuan_url: /waizhuan/
 waizhuan_series_title: '大黄鸭 · 外传'
 
+# 诗歌：与外传平齐的独立板块（聚合页路径与标签名，文章须带此标签）
+poetry_tag: '诗歌'
+poetry_url: /poetry/
+poetry_series_title: '大黄鸭 · 诗歌'
+
 # 主导航：「目录」= 平铺连载列表；归档页 /archives 仍可由 Hexo 生成（按年月汇总），需要时在浏览器打开即可
 menu:
   封面: /
   目录: /read/
   外传: /waizhuan/
+  诗歌: /poetry/

@@ -497,20 +497,19 @@ a:hover {
 html[data-read-flow="paged"] .novel-post__content {
   height: min(68vh, calc(100dvh - 12rem));
   min-height: 24rem;
+  display: flex;
+  align-items: flex-start;
   overflow-x: auto;
   overflow-y: hidden;
-  column-width: min(var(--novel-max-width), calc(100vw - 4rem));
-  column-gap: 3rem;
-  column-fill: auto;
+  gap: 3rem;
   scroll-behavior: smooth;
   scrollbar-gutter: stable;
-  padding-bottom: 0.75rem;
 }
 
-html[data-read-flow="paged"] .novel-post__content h2,
-html[data-read-flow="paged"] .novel-post__content blockquote,
-html[data-read-flow="paged"] .novel-post__content figure {
-  break-inside: avoid;
+/* 分页容器由 novel.js 生成：每页一屏，横向排列 */
+html[data-read-flow="paged"] .novel-post__content .novel-page {
+  flex: 0 0 auto;
+  overflow: hidden;
 }
 
 .novel-post__content p {
@@ -860,8 +859,7 @@ html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-read-dock__
   html[data-read-flow="paged"] .novel-post__content {
     height: calc(100dvh - 9.5rem);
     min-height: 18rem;
-    column-width: calc(100vw - 2.3rem);
-    column-gap: 2rem;
+    gap: 2rem;
   }
 
   .novel-chapter-bar {
@@ -1438,12 +1436,17 @@ body.novel-body--home {
 }
 
 /* ----- 主页小游戏：大黄鸭 · 单车大作战 ----- */
+/* 面板尺寸带 vh/vw 回退：不支持 dvh / min() / clamp() 的旧浏览器也不会塌陷或溢出 */
 .duck-game {
   position: relative;
   z-index: 2;
   flex: 1 1 auto;
+  width: 94vw;
   width: min(1120px, 94vw);
-  min-height: clamp(300px, 42dvh, 440px);
+  min-height: 340px;
+  min-height: clamp(320px, 40dvh, 440px);
+  max-height: 70vh;
+  max-height: 68dvh;
   margin: 0 auto 1.6rem;
   display: flex;
   flex-direction: column;
@@ -1502,6 +1505,10 @@ body.novel-body--home {
 
 .duck-game__canvas {
   position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   inset: 0;
   width: 100%;
   height: 100%;
@@ -1516,6 +1523,10 @@ body.novel-body--home {
 /* 覆盖层 */
 .duck-game__overlay {
   position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   inset: 0;
   z-index: 5;
   display: flex;
@@ -1607,6 +1618,20 @@ body.novel-body--home {
   color: #ffd23f;
 }
 
+/* 主页封面已内置小游戏：背景图保持静态，不做 Ken Burns 缓慢放大（避免「背景一直在放大」的观感） */
+body.novel-body--home .novel-hero__bg {
+  animation: none;
+}
+
+/* 赶早八结算：成功 / 迟到 */
+.duck-game__overlay--win .duck-game__overlay-title {
+  color: #7bd88f;
+}
+
+.duck-game__overlay--lose .duck-game__overlay-title {
+  color: #ff9d9d;
+}
+
 /* 触摸按钮 */
 .duck-game__touch {
   position: absolute;
@@ -1657,4 +1682,57 @@ body.novel-body--home {
   .duck-game__pause {
     transition: none;
   }
+}
+
+/* ----- 诗歌阅读页 ----- */
+.novel-post--poetry .novel-post__content {
+  text-align: center;
+}
+
+.novel-post--poetry .novel-post__content p {
+  margin: 0 0 0.9em;
+  text-indent: 0;
+  line-height: 2;
+  letter-spacing: 0.05em;
+}
+
+.novel-post--poetry .novel-post__content h2 {
+  margin: 2.4em 0 1.2em;
+  font-size: 1.3rem;
+  font-weight: 600;
+  letter-spacing: 0.32em;
+  line-height: 1.6;
+  text-align: center;
+  text-indent: 0;
+}
+
+.novel-post--poetry .novel-post__content h2::after {
+  content: '';
+  display: block;
+  width: 2.6rem;
+  height: 1px;
+  margin: 0.55rem auto 0;
+  background: linear-gradient(90deg, transparent, var(--novel-accent), transparent);
+}
+
+/* “~” 分隔（由 novel.js 加类） */
+.novel-post--poetry .novel-post__content .novel-poem__break {
+  margin: 1.6em 0 !important;
+  font-size: 0;
+}
+
+.novel-post--poetry .novel-post__content .novel-poem__break::before {
+  content: '· · ·';
+  font-size: 1.05rem;
+  letter-spacing: 0.55em;
+  color: var(--novel-muted);
+}
+
+/* 括号注释（由 novel.js 加类） */
+.novel-post--poetry .novel-post__content .novel-poem__note {
+  margin: 1.7em auto 0.3em;
+  font-size: 0.86em;
+  color: var(--novel-muted);
+  letter-spacing: 0.06em;
+  max-width: 34em;
 }

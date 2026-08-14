@@ -1,11 +1,10 @@
 ---
 title: xxt的诗：而我……
 date: 2026-05-04
-permalink: waizhuan/0x03-dahuangya-poems/
+permalink: poetry/0x03-dahuangya-poems/
 tags:
   - 小说
-  - 外传
-waizhuan_section: 诗歌
+  - 诗歌
 author_display: 肖馨桐
 excerpt: ""
 ---

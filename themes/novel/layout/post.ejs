@@ -1,12 +1,18 @@
 <% 
   var waizhuanTag = theme.waizhuan_tag || '外传';
+  var poetryTag = theme.poetry_tag || '诗歌';
   var isWaizhuan = false;
+  var isPoetry = false;
   if (page.tags && page.tags.length) {
-    page.tags.each(function (t) { if (t.name === waizhuanTag) isWaizhuan = true; });
+    page.tags.each(function (t) {
+      if (t.name === waizhuanTag) isWaizhuan = true;
+      if (t.name === poetryTag) isPoetry = true;
+    });
   }
   var _novelCat = config.index_generator && config.index_generator.path;
   var novelCatalogPath = (_novelCat && String(_novelCat).length) ? String(_novelCat).replace(/\/$/, '') + '/' : '/';
   var waizhuanListPath = theme.waizhuan_url || '/waizhuan/';
+  var poetryListPath = theme.poetry_url || '/poetry/';
   var chapters = [];
   site.posts.sort('source', 1).each(function (post) {
     if (theme.series_tag) {
@@ -24,6 +30,7 @@
   var prevCh = chapterIdx > 0 ? chapters[chapterIdx - 1] : null;
   var nextCh = chapterIdx >= 0 && chapterIdx < chapters.length - 1 ? chapters[chapterIdx + 1] : null;
   var waizhuanSeriesLabel = theme.waizhuan_series_title || '大黄鸭 · 外传';
+  var poetrySeriesLabel = theme.poetry_series_title || '大黄鸭 · 诗歌';
 %>
 <% if (isWaizhuan) { %>
 <nav class="novel-chapter-rail" id="novel-chapter-rail" aria-label="当前文章">
@@ -43,6 +50,27 @@
   <div class="novel-post__content" itemprop="articleBody"><%- page.content %></div>
   <nav class="novel-chapter-bar novel-chapter-bar--waizhuan" aria-label="外传导航">
     <a class="novel-chapter-bar__toc" href="<%- url_for(waizhuanListPath) %>">← 返回外传列表</a>
+  </nav>
+  <%- partial('_partial/giscus') %>
+</article>
+<% } else if (isPoetry) { %>
+<nav class="novel-chapter-rail" id="novel-chapter-rail" aria-label="当前文章">
+  <span class="novel-chapter-rail__text"><%= page.title %></span>
+</nav>
+<article class="novel-post novel-post--poetry novel-main" itemscope itemtype="https://schema.org/Article">
+  <header class="novel-post__head" id="novel-post-head">
+    <p class="novel-post__series"><%= poetrySeriesLabel %></p>
+    <h1 class="novel-post__title" itemprop="headline"><%= page.title %></h1>
+    <p class="novel-post__meta novel-post__meta--waizhuan">
+      <time datetime="<%= post_date_literal(page) %>" itemprop="datePublished"><%= post_date_literal(page) %></time>
+      <% if (page.author_display) { %>
+      <span class="novel-post__author" itemprop="author">文 / <%= page.author_display %></span>
+      <% } %>
+    </p>
+  </header>
+  <div class="novel-post__content" itemprop="articleBody"><%- page.content %></div>
+  <nav class="novel-chapter-bar novel-chapter-bar--waizhuan" aria-label="诗歌导航">
+    <a class="novel-chapter-bar__toc" href="<%- url_for(poetryListPath) %>">← 返回诗歌列表</a>
   </nav>
   <%- partial('_partial/giscus') %>
 </article>
