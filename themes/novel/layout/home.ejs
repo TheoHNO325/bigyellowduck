@@ -16,4 +16,46 @@
     <h1 class="novel-hero__title"><%= config.title %></h1>
     <p class="novel-hero__author"><%= heroAuthor %></p>
   </div>
+
+  <section class="duck-game" id="duck-game" aria-label="主页小游戏：大黄鸭单车大作战">
+    <header class="duck-game__head">
+      <span class="duck-game__name">🦆 大黄鸭 · 单车大作战</span>
+      <button class="duck-game__pause" id="duck-game-pause-btn" type="button" aria-label="暂停" hidden>⏸</button>
+    </header>
+    <div class="duck-game__stage">
+      <canvas class="duck-game__canvas" id="duck-game-canvas" aria-label="游戏画面"></canvas>
+
+      <div class="duck-game__overlay duck-game__overlay--start" id="duck-game-start">
+        <p class="duck-game__overlay-title">🚴 开始骑行</p>
+        <p class="duck-game__overlay-sub">躲开同向与相向的车手，别被撞倒！</p>
+        <ul class="duck-game__hint">
+          <li><b>W / S</b> — 上 / 下换道</li>
+          <li><b>Z</b> — 撞飞对方（自损 0.5 血）</li>
+          <li><b>P</b> — 暂停</li>
+        </ul>
+        <button class="duck-game__btn" id="duck-game-start-btn" type="button">开始游戏</button>
+        <p class="duck-game__overlay-tip">或按 Enter 开始</p>
+      </div>
+
+      <div class="duck-game__overlay duck-game__overlay--over" id="duck-game-over" hidden>
+        <p class="duck-game__overlay-title">💀 游戏结束</p>
+        <p class="duck-game__overlay-sub">你被「GameOver」车碾过了…</p>
+        <p class="duck-game__stats" id="duck-game-stats"></p>
+        <button class="duck-game__btn" id="duck-game-restart-btn" type="button">再玩一次</button>
+        <p class="duck-game__overlay-tip">或按 Enter 再来一局</p>
+      </div>
+
+      <div class="duck-game__overlay duck-game__overlay--pause" id="duck-game-pause" hidden>
+        <p class="duck-game__overlay-title">⏸ 已暂停</p>
+        <button class="duck-game__btn" id="duck-game-resume-btn" type="button">继续游戏</button>
+      </div>
+
+      <div class="duck-game__touch" id="duck-game-touch" hidden>
+        <button class="duck-game__touch-btn" data-touch="up" type="button" aria-label="向上换道">▲</button>
+        <button class="duck-game__touch-btn" data-touch="z" type="button" aria-label="撞飞">💥</button>
+        <button class="duck-game__touch-btn" data-touch="down" type="button" aria-label="向下换道">▼</button>
+      </div>
+    </div>
+  </section>
 </main>
+<script src="<%- url_for('/js/duck-bike-game.js') %>"></script>

@@ -29,8 +29,13 @@
   <% } %>
   <% sectionOrder.forEach(function (sec, si) { var posts = groups[sec]; %>
   <section class="novel-waizhuan-board" aria-labelledby="waizhuan-board-<%= si %>">
-    <h2 class="novel-waizhuan-board__title" id="waizhuan-board-<%= si %>"><%= sec %></h2>
-    <div class="novel-waizhuan-board__grid">
+    <h2 class="novel-waizhuan-board__title" id="waizhuan-board-<%= si %>">
+      <button type="button" class="novel-waizhuan-board__toggle" data-waizhuan-toggle aria-expanded="true" aria-controls="waizhuan-board-panel-<%= si %>">
+        <span class="novel-waizhuan-board__name"><%= sec %></span>
+        <span class="novel-waizhuan-board__mark" aria-hidden="true"></span>
+      </button>
+    </h2>
+    <div class="novel-waizhuan-board__grid" id="waizhuan-board-panel-<%= si %>">
       <% posts.forEach(function (p) { %>
       <article class="novel-waizhuan-card novel-card">
         <h3 class="novel-waizhuan-card__title">
