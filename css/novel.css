@@ -12,8 +12,8 @@
 html[data-read-mode="light"] {
   --novel-bg: #fafafa;
   --novel-surface: #ffffff;
-  --novel-text: #1a1a1a;
-  --novel-muted: #666666;
+  --novel-text: #000000;
+  --novel-muted: #333333;
   --novel-border: #e2e2e2;
   --novel-accent: #2a6df4;
   --novel-accent-hover: #1e56c9;
@@ -89,7 +89,7 @@ html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-main {
   padding: 1.35rem 1.4rem 1.5rem;
   border-radius: var(--novel-radius);
   box-shadow: 0 6px 32px rgba(0, 0, 0, 0.12);
-  color: #1a1a1a;
+  color: #000000;
 }
 
 html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-main a {
@@ -112,7 +112,7 @@ html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-main .novel
 }
 
 html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-main .novel-card__title a {
-  color: #1a1a1a;
+  color: #000000;
 }
 
 html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-main .novel-post__series,
@@ -129,20 +129,14 @@ html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-main .novel
 html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-main .novel-chapter-bar__link,
 html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-main .novel-chapter-bar__toc {
   background: rgba(255, 255, 255, 0.75);
-  color: #1a1a1a;
+  color: #000000;
 }
 
 html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-main .novel-pagination .page-number,
 html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-main .novel-pagination .extend {
   background: rgba(255, 255, 255, 0.75);
   border-color: rgba(0, 0, 0, 0.12);
-  color: #1a1a1a;
-}
-
-.novel-tool--duck.is-on {
-  border-color: #f4c430;
-  color: #b8860b;
-  background: rgba(255, 220, 100, 0.28);
+  color: #000000;
 }
 
 a {
@@ -237,6 +231,16 @@ a:hover {
 .novel-tool:hover {
   border-color: var(--novel-accent);
   color: var(--novel-accent);
+}
+.novel-tool.is-on {
+  border-color: var(--novel-accent);
+  color: var(--novel-accent);
+  background: color-mix(in srgb, var(--novel-accent) 12%, var(--novel-surface));
+}
+.novel-tool--duck.is-on {
+  border-color: #f4c430;
+  color: #b8860b;
+  background: rgba(255, 220, 100, 0.28);
 }
 
 .novel-wrap {
@@ -415,9 +419,41 @@ a:hover {
   font-size: 1.15rem;
   font-weight: 700;
   margin: 0 0 1rem;
-  padding-bottom: 0.5rem;
   border-bottom: 1px solid var(--novel-border);
   color: var(--novel-text);
+}
+
+.novel-waizhuan-board__toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0 0 0.5rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.novel-waizhuan-board__toggle:hover {
+  color: var(--novel-accent);
+}
+
+.novel-waizhuan-board__mark {
+  flex: 0 0 auto;
+  width: 0.62rem;
+  height: 0.62rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg) translateY(-0.12rem);
+  transition: transform 0.18s ease;
+}
+
+.novel-waizhuan-board__toggle[aria-expanded="false"] .novel-waizhuan-board__mark {
+  transform: rotate(-45deg);
 }
 
 .novel-waizhuan-board__grid {
@@ -456,6 +492,25 @@ a:hover {
   line-height: var(--novel-line);
   letter-spacing: 0.03em;
   word-break: break-word;
+}
+
+html[data-read-flow="paged"] .novel-post__content {
+  height: min(68vh, calc(100dvh - 12rem));
+  min-height: 24rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  column-width: min(var(--novel-max-width), calc(100vw - 4rem));
+  column-gap: 3rem;
+  column-fill: auto;
+  scroll-behavior: smooth;
+  scrollbar-gutter: stable;
+  padding-bottom: 0.75rem;
+}
+
+html[data-read-flow="paged"] .novel-post__content h2,
+html[data-read-flow="paged"] .novel-post__content blockquote,
+html[data-read-flow="paged"] .novel-post__content figure {
+  break-inside: avoid;
 }
 
 .novel-post__content p {
@@ -790,7 +845,7 @@ html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-read-dock {
 }
 
 html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-read-dock__link {
-  color: #1a1a1a;
+  color: #000000;
 }
 
 html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-read-dock__link:hover {
@@ -802,6 +857,13 @@ html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-read-dock__
 }
 
 @media (max-width: 720px) {
+  html[data-read-flow="paged"] .novel-post__content {
+    height: calc(100dvh - 9.5rem);
+    min-height: 18rem;
+    column-width: calc(100vw - 2.3rem);
+    column-gap: 2rem;
+  }
+
   .novel-chapter-bar {
     grid-template-columns: 1fr;
   }
@@ -1004,7 +1066,7 @@ html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-chapter-rai
 }
 
 html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-chapter-rail__text {
-  color: #1a1a1a;
+  color: #000000;
 }
 
 /* 「鸭」联动：浮动吉祥物 */
@@ -1105,12 +1167,12 @@ html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-chapter-rai
 
 html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-finale__panel {
   background: rgba(255, 255, 255, 0.92);
-  color: #1a1a1a;
+  color: #000000;
   border-color: rgba(244, 196, 48, 0.55);
 }
 
 html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-finale__text {
-  color: #1a1a1a;
+  color: #000000;
 }
 
 /* ----- Cover homepage ----- */
@@ -1212,12 +1274,12 @@ body.novel-body--home {
 .novel-hero__center {
   position: relative;
   z-index: 2;
-  flex: 1;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: clamp(4.5rem, 14vh, 7.5rem) 1.25rem 3rem;
+  padding: clamp(3.2rem, 9.5vh, 5rem) 1.25rem 0.7rem;
 }
 
 .novel-hero__title {
@@ -1313,7 +1375,7 @@ body.novel-body--home {
   }
 
   .novel-hero__center {
-    padding-top: clamp(4rem, 18vw, 5.5rem);
+    padding-top: clamp(2.6rem, 11vw, 4rem);
   }
 
   .novel-hero__author {
@@ -1372,5 +1434,227 @@ body.novel-body--home {
 
   .novel-read-dock {
     transition: transform 0.12s linear, opacity 0.12s linear;
+  }
+}
+
+/* ----- 主页小游戏：大黄鸭 · 单车大作战 ----- */
+.duck-game {
+  position: relative;
+  z-index: 2;
+  flex: 1 1 auto;
+  width: min(1120px, 94vw);
+  min-height: clamp(300px, 42dvh, 440px);
+  margin: 0 auto 1.6rem;
+  display: flex;
+  flex-direction: column;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #101318;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+.duck-game__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0.9rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.duck-game__name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.duck-game__pause {
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.duck-game__pause:hover {
+  background: rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
+}
+
+.duck-game__stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  touch-action: none;
+}
+
+.duck-game__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: #23262b;
+}
+
+.duck-game [hidden] {
+  display: none !important;
+}
+
+/* 覆盖层 */
+.duck-game__overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 0.55rem;
+  padding: 1.2rem;
+  background: rgba(10, 12, 16, 0.66);
+  backdrop-filter: blur(2px);
+  color: #ffffff;
+  animation: duckGameFade 0.28s ease both;
+}
+
+@keyframes duckGameFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.duck-game__overlay-title {
+  margin: 0;
+  font-size: clamp(1.15rem, 3vw, 1.6rem);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.duck-game__overlay-sub {
+  margin: 0;
+  font-size: 0.92rem;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.duck-game__hint {
+  margin: 0.35rem 0 0.5rem;
+  padding: 0.6rem 0.95rem;
+  list-style: none;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.85rem;
+  line-height: 1.9;
+  color: rgba(255, 255, 255, 0.88);
+  text-align: left;
+}
+
+.duck-game__hint b {
+  display: inline-block;
+  min-width: 2.4em;
+  color: #ffd23f;
+  font-weight: 800;
+}
+
+.duck-game__btn {
+  margin-top: 0.35rem;
+  padding: 0.6rem 1.9rem;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #1a1a1a;
+  background: #ffd23f;
+  box-shadow: 0 8px 26px rgba(255, 210, 63, 0.35);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.duck-game__btn:hover {
+  transform: translateY(-2px);
+  background: #ffdf6b;
+  box-shadow: 0 12px 30px rgba(255, 210, 63, 0.45);
+}
+
+.duck-game__overlay-tip {
+  margin: 0;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.duck-game__stats {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #ffd23f;
+}
+
+/* 触摸按钮 */
+.duck-game__touch {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%);
+  z-index: 6;
+  display: flex;
+  gap: 0.6rem;
+}
+
+.duck-game__touch-btn {
+  width: 3.2rem;
+  height: 3.2rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(20, 23, 30, 0.72);
+  color: #ffffff;
+  font-size: 1.2rem;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: pointer;
+}
+
+.duck-game__touch-btn:active {
+  background: rgba(255, 210, 63, 0.85);
+  color: #1a1a1a;
+}
+
+@media (max-width: 640px) {
+  .duck-game {
+    width: calc(100vw - 1.2rem);
+    border-radius: 14px;
+  }
+
+  .duck-game__name {
+    font-size: 0.82rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .duck-game__overlay {
+    animation: none;
+  }
+
+  .duck-game__btn,
+  .duck-game__pause {
+    transition: none;
   }
 }

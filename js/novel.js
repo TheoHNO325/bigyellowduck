@@ -6,9 +6,11 @@
   var body = document.body;
   var bar = document.getElementById('read-progress');
   var KEY_MODE = 'novel-read-mode';
+  var KEY_FLOW = 'novel-read-flow';
   var KEY_FONT = 'novel-font-step';
   var KEY_DUCK = 'novel-duck-bg';
   var MODES = ['light', 'sepia', 'dark'];
+  var FLOWS = ['scroll', 'paged'];
   var prefersReduced =
     typeof window.matchMedia === 'function' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -24,6 +26,26 @@
     try {
       localStorage.setItem(KEY_MODE, m);
     } catch (e) {}
+  }
+
+  function applyFlow(f) {
+    f = String(f || '').trim();
+    if (FLOWS.indexOf(f) === -1) f = 'scroll';
+    root.setAttribute('data-read-flow', f);
+    try {
+      localStorage.setItem(KEY_FLOW, f);
+    } catch (e) {}
+    syncFlowButtons();
+    requestAnimationFrame(updateProgress);
+  }
+
+  function syncFlowButtons() {
+    var current = root.getAttribute('data-read-flow') || 'scroll';
+    document.querySelectorAll('[data-read-flow]').forEach(function (btn) {
+      var on = btn.getAttribute('data-read-flow') === current;
+      btn.classList.toggle('is-on', on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
   }
 
   function themeFlash() {
@@ -111,6 +133,11 @@
   } catch (e) {
     applyMode('sepia');
   }
+  try {
+    applyFlow(localStorage.getItem(KEY_FLOW) || 'scroll');
+  } catch (e) {
+    applyFlow('scroll');
+  }
   applyFont();
 
   if (!body.classList.contains('novel-body--home')) {
@@ -143,6 +170,11 @@
         setDuck(!root.hasAttribute('data-duck-bg'));
         return;
       }
+      if (btn.hasAttribute('data-read-flow')) {
+        e.preventDefault();
+        applyFlow(btn.getAttribute('data-read-flow'));
+        return;
+      }
       if (btn.hasAttribute('data-font')) {
         e.preventDefault();
         fontStep += parseInt(btn.getAttribute('data-font'), 10) || 0;
@@ -155,6 +187,13 @@
 
   function updateProgress() {
     if (!bar) return;
+    var pagedContent = document.querySelector('.novel-post__content');
+    if (root.getAttribute('data-read-flow') === 'paged' && pagedContent) {
+      var maxLeft = pagedContent.scrollWidth - pagedContent.clientWidth;
+      var hp = maxLeft > 0 ? pagedContent.scrollLeft / maxLeft : 1;
+      bar.style.transform = 'scaleX(' + clamp(hp, 0, 1) + ')';
+      return;
+    }
     var doc = document.documentElement;
     var scrollTop = window.scrollY || doc.scrollTop;
     var max = doc.scrollHeight - window.innerHeight;
@@ -278,6 +317,51 @@
     updateFinale();
   }
 
+  function initPagedReading() {
+    var content = document.querySelector('.novel-post__content');
+    if (!content) return;
+    content.addEventListener(
+      'scroll',
+      function () {
+        if (root.getAttribute('data-read-flow') === 'paged') updateProgress();
+      },
+      { passive: true }
+    );
+    document.addEventListener('keydown', function (e) {
+      if (root.getAttribute('data-read-flow') !== 'paged') return;
+      if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      var active = document.activeElement;
+      if (active && /^(INPUT|TEXTAREA|SELECT|BUTTON|A)$/.test(active.tagName)) return;
+      e.preventDefault();
+      var dir = e.key === 'ArrowRight' ? 1 : -1;
+      content.scrollBy({ left: dir * content.clientWidth, behavior: 'smooth' });
+    });
+  }
+
+  function initWaizhuanCollapse() {
+    document.querySelectorAll('[data-waizhuan-toggle]').forEach(function (btn) {
+      var panelId = btn.getAttribute('aria-controls');
+      var panel = panelId ? document.getElementById(panelId) : null;
+      if (!panel) return;
+      var key = 'novel-waizhuan-collapsed:' + location.pathname + ':' + panelId;
+      try {
+        if (localStorage.getItem(key) === '1') {
+          btn.setAttribute('aria-expanded', 'false');
+          panel.hidden = true;
+        }
+      } catch (e) {}
+      btn.addEventListener('click', function () {
+        var expanded = btn.getAttribute('aria-expanded') !== 'false';
+        btn.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+        panel.hidden = expanded;
+        try {
+          localStorage.setItem(key, expanded ? '1' : '0');
+        } catch (e2) {}
+      });
+    });
+  }
+
   window.addEventListener('scroll', onScroll, { passive: true });
   window.addEventListener('resize', onScroll);
   updateProgress();
@@ -286,5 +370,7 @@
   initHeroParallax();
   initMagneticCards();
   initChapterRail();
+  initPagedReading();
+  initWaizhuanCollapse();
   initFinale();
 })();

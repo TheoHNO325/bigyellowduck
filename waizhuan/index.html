@@ -33,6 +33,8 @@
       
       <a href="/bigyellowduck/waizhuan/">外传</a>
       
+      <a href="/bigyellowduck/poetry/">诗歌</a>
+      
     </nav>
     
     <div class="novel-tools" role="toolbar" aria-label="阅读设置">
@@ -40,6 +42,9 @@
       <button type="button" class="novel-tool" data-read-mode="sepia" title="护眼">护</button>
       <button type="button" class="novel-tool" data-read-mode="dark" title="暗色">暗</button>
       <button type="button" class="novel-tool novel-tool--duck" data-duck-toggle title="大黄鸭背景">鸭</button>
+      <span class="novel-tools__sep" aria-hidden="true">|</span>
+      <button type="button" class="novel-tool" data-read-flow="scroll" title="上下滚动阅读">滚</button>
+      <button type="button" class="novel-tool" data-read-flow="paged" title="左右翻页阅读">页</button>
       <span class="novel-tools__sep" aria-hidden="true">|</span>
       <button type="button" class="novel-tool" data-font="-1" title="减小字号">A−</button>
       <button type="button" class="novel-tool" data-font="1" title="增大字号">A+</button>
@@ -61,8 +66,13 @@
   
   
   <section class="novel-waizhuan-board" aria-labelledby="waizhuan-board-0">
-    <h2 class="novel-waizhuan-board__title" id="waizhuan-board-0">笔记</h2>
-    <div class="novel-waizhuan-board__grid">
+    <h2 class="novel-waizhuan-board__title" id="waizhuan-board-0">
+      <button type="button" class="novel-waizhuan-board__toggle" data-waizhuan-toggle aria-expanded="true" aria-controls="waizhuan-board-panel-0">
+        <span class="novel-waizhuan-board__name">笔记</span>
+        <span class="novel-waizhuan-board__mark" aria-hidden="true"></span>
+      </button>
+    </h2>
+    <div class="novel-waizhuan-board__grid" id="waizhuan-board-panel-0">
       
       <article class="novel-waizhuan-card novel-card">
         <h3 class="novel-waizhuan-card__title">
@@ -81,8 +91,13 @@
   </section>
   
   <section class="novel-waizhuan-board" aria-labelledby="waizhuan-board-1">
-    <h2 class="novel-waizhuan-board__title" id="waizhuan-board-1">科研笔记</h2>
-    <div class="novel-waizhuan-board__grid">
+    <h2 class="novel-waizhuan-board__title" id="waizhuan-board-1">
+      <button type="button" class="novel-waizhuan-board__toggle" data-waizhuan-toggle aria-expanded="true" aria-controls="waizhuan-board-panel-1">
+        <span class="novel-waizhuan-board__name">科研笔记</span>
+        <span class="novel-waizhuan-board__mark" aria-hidden="true"></span>
+      </button>
+    </h2>
+    <div class="novel-waizhuan-board__grid" id="waizhuan-board-panel-1">
       
       <article class="novel-waizhuan-card novel-card">
         <h3 class="novel-waizhuan-card__title">
@@ -153,26 +168,13 @@
   </section>
   
   <section class="novel-waizhuan-board" aria-labelledby="waizhuan-board-2">
-    <h2 class="novel-waizhuan-board__title" id="waizhuan-board-2">诗歌</h2>
-    <div class="novel-waizhuan-board__grid">
-      
-      <article class="novel-waizhuan-card novel-card">
-        <h3 class="novel-waizhuan-card__title">
-          <a href="/bigyellowduck/waizhuan/0x03-dahuangya-poems/">xxt的诗：而我……</a>
-        </h3>
-        
-        <p class="novel-waizhuan-card__author">文 / 肖馨桐</p>
-        
-        <time class="novel-card__time" datetime="2026-05-04">2026-05-04</time>
-        
-      </article>
-      
-    </div>
-  </section>
-  
-  <section class="novel-waizhuan-board" aria-labelledby="waizhuan-board-3">
-    <h2 class="novel-waizhuan-board__title" id="waizhuan-board-3">杂文戏笔</h2>
-    <div class="novel-waizhuan-board__grid">
+    <h2 class="novel-waizhuan-board__title" id="waizhuan-board-2">
+      <button type="button" class="novel-waizhuan-board__toggle" data-waizhuan-toggle aria-expanded="true" aria-controls="waizhuan-board-panel-2">
+        <span class="novel-waizhuan-board__name">杂文戏笔</span>
+        <span class="novel-waizhuan-board__mark" aria-hidden="true"></span>
+      </button>
+    </h2>
+    <div class="novel-waizhuan-board__grid" id="waizhuan-board-panel-2">
       
       <article class="novel-waizhuan-card novel-card">
         <h3 class="novel-waizhuan-card__title">
