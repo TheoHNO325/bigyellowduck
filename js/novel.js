@@ -36,6 +36,11 @@
       localStorage.setItem(KEY_FLOW, f);
     } catch (e) {}
     syncFlowButtons();
+    if (f === 'paged') {
+      enterPaged();
+    } else {
+      exitPaged();
+    }
     requestAnimationFrame(updateProgress);
   }
 
@@ -74,6 +79,109 @@
     try {
       localStorage.setItem(KEY_FONT, String(fontStep));
     } catch (e) {}
+    scheduleRepaginate();
+  }
+
+  /* ---------- 左右翻页（paged）阅读：JS 分页，规避多列布局滚动缺陷 ---------- */
+  var pagedContent = null;
+  var repaginateTimer = 0;
+  var repaginating = false;
+  var suppressObserverUntil = 0; // 抑制由自身分页动作触发的 MutationObserver
+
+  function isPaged() {
+    return root.getAttribute('data-read-flow') === 'paged';
+  }
+
+  function makePage(pw) {
+    var page = document.createElement('div');
+    page.className = 'novel-page';
+    page.style.width = pw + 'px';
+    return page;
+  }
+
+  function repaginate() {
+    if (!isPaged() || !pagedContent) return;
+    repaginating = true;
+    suppressObserverUntil = Date.now() + 400;
+    try {
+      // 先把旧分页里的内容拆回原容器
+      var oldPages = pagedContent.querySelectorAll('.novel-page');
+      for (var i = oldPages.length - 1; i >= 0; i--) {
+        var pg = oldPages[i];
+        while (pg.firstChild) pagedContent.insertBefore(pg.firstChild, pg);
+        pg.remove();
+      }
+      var pw = pagedContent.clientWidth;
+      var ph = pagedContent.clientHeight;
+      if (pw <= 0 || ph <= 0) return;
+      var kids = Array.prototype.slice.call(pagedContent.children);
+      if (!kids.length) return;
+      var page = null;
+      var acc = 0;
+      kids.forEach(function (kid) {
+        var cs = window.getComputedStyle(kid);
+        var h =
+          kid.offsetHeight + (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0);
+        if (page && acc + h > ph + 1) {
+          page = null;
+          acc = 0;
+        }
+        if (!page) {
+          page = makePage(pw);
+          pagedContent.appendChild(page);
+        }
+        page.appendChild(kid);
+        acc += h;
+      });
+    } finally {
+      repaginating = false;
+    }
+    requestAnimationFrame(updateProgress);
+  }
+
+  function scheduleRepaginate() {
+    if (!isPaged() || !pagedContent || repaginating) return;
+    clearTimeout(repaginateTimer);
+    repaginateTimer = setTimeout(repaginate, 150);
+  }
+
+  function enterPaged() {
+    pagedContent = document.querySelector('.novel-post__content');
+    if (!pagedContent) return;
+    repaginate();
+    pagedContent.scrollLeft = 0;
+    var r = pagedContent.getBoundingClientRect();
+    if (r.top < 0 || r.bottom > window.innerHeight) {
+      try {
+        pagedContent.scrollIntoView({ block: 'start' });
+      } catch (e) {}
+    }
+  }
+
+  function exitPaged() {
+    if (!pagedContent) return;
+    var pages = pagedContent.querySelectorAll('.novel-page');
+    for (var i = pages.length - 1; i >= 0; i--) {
+      var pg = pages[i];
+      while (pg.firstChild) pagedContent.insertBefore(pg.firstChild, pg);
+      pg.remove();
+    }
+    pagedContent.scrollLeft = 0;
+    pagedContent = null;
+  }
+
+  /* 诗歌正文排版：标注「~」分隔与「（…）」注释 */
+  function initPoemLayout() {
+    var content = document.querySelector('.novel-post--poetry .novel-post__content');
+    if (!content) return;
+    content.querySelectorAll('p').forEach(function (p) {
+      var t = (p.textContent || '').trim();
+      if (t === '~' || t === '～') {
+        p.classList.add('novel-poem__break');
+      } else if (t.charAt(0) === '（' || t.charAt(0) === '(') {
+        p.classList.add('novel-poem__note');
+      }
+    });
   }
 
   function setDuck(on) {
@@ -323,19 +431,33 @@
     content.addEventListener(
       'scroll',
       function () {
-        if (root.getAttribute('data-read-flow') === 'paged') updateProgress();
+        if (isPaged()) updateProgress();
       },
       { passive: true }
     );
+    // 内容动态变化（图片懒加载、插件注入等）后重新分页
+    if (typeof MutationObserver !== 'undefined') {
+      new MutationObserver(function () {
+        if (repaginating) return;
+        if (Date.now() < suppressObserverUntil) return; // 自身分页动作引起的变化
+        scheduleRepaginate();
+      }).observe(content, { childList: true, subtree: true });
+    }
     document.addEventListener('keydown', function (e) {
-      if (root.getAttribute('data-read-flow') !== 'paged') return;
+      if (!isPaged() || !pagedContent) return;
       if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
       if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
       var active = document.activeElement;
       if (active && /^(INPUT|TEXTAREA|SELECT|BUTTON|A)$/.test(active.tagName)) return;
       e.preventDefault();
       var dir = e.key === 'ArrowRight' ? 1 : -1;
-      content.scrollBy({ left: dir * content.clientWidth, behavior: 'smooth' });
+      var gap = 0;
+      var cs = window.getComputedStyle(pagedContent);
+      if (cs.gap) gap = parseFloat(cs.gap) || 0;
+      pagedContent.scrollBy({
+        left: dir * (pagedContent.clientWidth + gap),
+        behavior: 'smooth'
+      });
     });
   }
 
@@ -364,12 +486,19 @@
 
   window.addEventListener('scroll', onScroll, { passive: true });
   window.addEventListener('resize', onScroll);
+  window.addEventListener('resize', scheduleRepaginate);
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(function () {
+      scheduleRepaginate();
+    });
+  }
   updateProgress();
   updateReadNextDock();
 
   initHeroParallax();
   initMagneticCards();
   initChapterRail();
+  initPoemLayout();
   initPagedReading();
   initWaizhuanCollapse();
   initFinale();
