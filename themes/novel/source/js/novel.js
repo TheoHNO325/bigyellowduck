@@ -80,6 +80,7 @@
       localStorage.setItem(KEY_FONT, String(fontStep));
     } catch (e) {}
     scheduleRepaginate();
+    schedulePoemBookChunk();
   }
 
   /* ---------- 左右翻页（paged）阅读：JS 分页，规避多列布局滚动缺陷 ---------- */
@@ -181,6 +182,260 @@
       } else if (t.charAt(0) === '（' || t.charAt(0) === '(') {
         p.classList.add('novel-poem__note');
       }
+    });
+  }
+
+  /* 诗歌翻页书册：正文切成书页，左右双页并排，翻页阅读 */
+  var poemBook = null; // { spread, total }
+  var poemBookResize = null;
+  var poemBookTimer = 0;
+
+  function schedulePoemBookChunk() {
+    if (!poemBookResize) return;
+    clearTimeout(poemBookTimer);
+    poemBookTimer = setTimeout(poemBookResize, 150);
+  }
+
+  function initPoemBook() {
+    var content = document.querySelector('.novel-post--poetry .novel-post__content');
+    if (!content || !content.children.length) return;
+    body.classList.add('novel-body--poetry');
+    // 若此前被 paged 模式分页过，先拆回原容器
+    if (isPaged()) exitPaged();
+
+    var book = document.createElement('div');
+    book.className = 'novel-book';
+    book.id = 'novel-book';
+
+    var stage = document.createElement('div');
+    stage.className = 'novel-book__stage';
+    var spread = document.createElement('div');
+    spread.className = 'novel-book__spread';
+    var left = document.createElement('div');
+    left.className = 'novel-book__slot novel-book__slot--left';
+    var right = document.createElement('div');
+    right.className = 'novel-book__slot novel-book__slot--right';
+    spread.appendChild(left);
+    spread.appendChild(right);
+    var measure = document.createElement('div');
+    measure.className = 'novel-book__measure';
+    stage.appendChild(spread);
+    stage.appendChild(measure);
+    book.appendChild(stage);
+
+    var controls = document.createElement('div');
+    controls.className = 'novel-book__controls';
+    var btnPrev = document.createElement('button');
+    btnPrev.type = 'button';
+    btnPrev.className = 'novel-book__nav novel-book__nav--prev';
+    btnPrev.textContent = '‹ 上一页';
+    btnPrev.setAttribute('aria-label', '上一页');
+    var count = document.createElement('span');
+    count.className = 'novel-book__count';
+    count.setAttribute('aria-live', 'polite');
+    var btnNext = document.createElement('button');
+    btnNext.type = 'button';
+    btnNext.className = 'novel-book__nav novel-book__nav--next';
+    btnNext.textContent = '下一页 ›';
+    btnNext.setAttribute('aria-label', '下一页');
+    controls.appendChild(btnPrev);
+    controls.appendChild(count);
+    controls.appendChild(btnNext);
+    book.appendChild(controls);
+
+    var state = {
+      pages: [],
+      spread: 0,
+      per: window.innerWidth < 640 ? 1 : 2,
+      pw: 0,
+      ph: 0
+    };
+
+    function pageWidth() {
+      if (window.innerWidth < 640) {
+        return clamp(Math.min(26 * 16, window.innerWidth - 48), 240, 26 * 16);
+      }
+      return clamp((Math.min(56 * 16, window.innerWidth - 32) - 26) / 2, 300, 24 * 16);
+    }
+
+    function pageHeight() {
+      return clamp(Math.min(window.innerHeight * 0.72, 40 * 16), 300, 40 * 16);
+    }
+
+    function makePage() {
+      var p = document.createElement('div');
+      p.className = 'novel-book__page';
+      p.style.width = state.pw + 'px';
+      var f = document.createElement('span');
+      f.className = 'novel-book__pageno';
+      p.appendChild(f);
+      return p;
+    }
+
+    function collectKids() {
+      var kids = [];
+      state.pages.forEach(function (p) {
+        while (p.firstChild) {
+          var k = p.firstChild;
+          if (k.nodeType !== 1) {
+            p.removeChild(k); // 丢弃空白文本节点
+            continue;
+          }
+          if (k.classList && k.classList.contains('novel-book__pageno')) {
+            p.removeChild(k);
+            continue;
+          }
+          kids.push(p.removeChild(k));
+        }
+      });
+      state.pages = [];
+      while (content.firstChild) {
+        var c = content.firstChild;
+        if (c.nodeType !== 1) {
+          content.removeChild(c); // 丢弃空白文本节点
+          continue;
+        }
+        kids.push(content.removeChild(c));
+      }
+      return kids;
+    }
+
+    function chunk() {
+      var kids = collectKids();
+      state.pw = pageWidth();
+      state.ph = pageHeight();
+      var page = null;
+      var acc = 0;
+      kids.forEach(function (kid) {
+        if (!page) {
+          page = makePage();
+          state.pages.push(page);
+          measure.appendChild(page);
+        }
+        page.appendChild(kid);
+        var cs = window.getComputedStyle(kid);
+        var h =
+          kid.offsetHeight + (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0);
+        if (acc + h > state.ph + 1 && page.childNodes.length > 1) {
+          page.removeChild(kid);
+          page = makePage();
+          state.pages.push(page);
+          measure.appendChild(page);
+          page.appendChild(kid);
+          acc = h;
+        } else {
+          acc += h;
+        }
+      });
+      state.pages.forEach(function (p, i) {
+        var f = p.querySelector('.novel-book__pageno');
+        if (f) f.textContent = String(i + 1);
+      });
+    }
+
+    function render() {
+      var per = state.per;
+      var i0 = state.spread * per;
+      left.innerHTML = '';
+      right.innerHTML = '';
+      right.style.display = per === 2 ? '' : 'none';
+      if (state.pages[i0]) left.appendChild(state.pages[i0]);
+      if (per === 2 && state.pages[i0 + 1]) right.appendChild(state.pages[i0 + 1]);
+      var total = state.pages.length;
+      var label;
+      if (per === 2) {
+        var a = i0 + 1;
+        var b = Math.min(i0 + 2, total);
+        label =
+          a === b
+            ? '第 ' + a + ' 页 / 共 ' + total + ' 页'
+            : '第 ' + a + '–' + b + ' 页 / 共 ' + total + ' 页';
+      } else {
+        label = '第 ' + (i0 + 1) + ' 页 / 共 ' + total + ' 页';
+      }
+      count.textContent = label;
+      btnPrev.disabled = state.spread <= 0;
+      btnNext.disabled = state.spread >= Math.ceil(total / per) - 1;
+      poemBook = { spread: state.spread, total: Math.max(1, Math.ceil(total / per)) };
+      updateProgress();
+    }
+
+    function turn(dir) {
+      var totalSpreads = Math.ceil(state.pages.length / state.per);
+      var ns = clamp(state.spread + dir, 0, totalSpreads - 1);
+      if (ns === state.spread) return;
+      state.spread = ns;
+      if (!prefersReduced) {
+        spread.classList.remove('is-next', 'is-prev');
+        void spread.offsetWidth;
+        spread.classList.add(dir > 0 ? 'is-next' : 'is-prev');
+      }
+      render();
+    }
+
+    function resizeBook() {
+      var per = window.innerWidth < 640 ? 1 : 2;
+      var pw = pageWidth();
+      var ph = pageHeight();
+      if (per === state.per && Math.abs(pw - state.pw) <= 2 && Math.abs(ph - state.ph) <= 2) {
+        return;
+      }
+      state.per = per;
+      chunk();
+      state.spread = clamp(state.spread, 0, Math.max(0, Math.ceil(state.pages.length / per) - 1));
+      render();
+    }
+    poemBookResize = resizeBook;
+
+    // 先把书插入文档（保证分页测量有布局），再分页
+    content.insertAdjacentElement('afterend', book);
+    try {
+      chunk();
+      render();
+    } catch (e) {
+      collectKids().forEach(function (k) {
+        content.appendChild(k);
+      });
+      book.remove();
+      poemBookResize = null;
+      return;
+    }
+    // 移除原正文容器，语义属性转移到书册
+    book.setAttribute('itemprop', 'articleBody');
+    content.remove();
+
+    btnPrev.addEventListener('click', function () {
+      turn(-1);
+    });
+    btnNext.addEventListener('click', function () {
+      turn(1);
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (!poemBook) return;
+      if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      var active = document.activeElement;
+      if (active && /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName)) return;
+      e.preventDefault();
+      turn(e.key === 'ArrowRight' ? 1 : -1);
+    });
+
+    // 滑动翻页
+    var downX = null;
+    var downY = null;
+    stage.addEventListener('pointerdown', function (e) {
+      downX = e.clientX;
+      downY = e.clientY;
+    });
+    stage.addEventListener('pointerup', function (e) {
+      if (downX == null) return;
+      var dx = e.clientX - downX;
+      var dy = e.clientY - downY;
+      downX = null;
+      downY = null;
+      if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
+      turn(dx < 0 ? 1 : -1);
     });
   }
 
@@ -295,6 +550,11 @@
 
   function updateProgress() {
     if (!bar) return;
+    if (poemBook && poemBook.total > 1) {
+      var hpBook = poemBook.spread / (poemBook.total - 1);
+      bar.style.transform = 'scaleX(' + clamp(hpBook, 0, 1) + ')';
+      return;
+    }
     var pagedContent = document.querySelector('.novel-post__content');
     if (root.getAttribute('data-read-flow') === 'paged' && pagedContent) {
       var maxLeft = pagedContent.scrollWidth - pagedContent.clientWidth;
@@ -487,9 +747,11 @@
   window.addEventListener('scroll', onScroll, { passive: true });
   window.addEventListener('resize', onScroll);
   window.addEventListener('resize', scheduleRepaginate);
+  window.addEventListener('resize', schedulePoemBookChunk);
   if (document.fonts && document.fonts.ready) {
     document.fonts.ready.then(function () {
       scheduleRepaginate();
+      schedulePoemBookChunk();
     });
   }
   updateProgress();
@@ -499,6 +761,7 @@
   initMagneticCards();
   initChapterRail();
   initPoemLayout();
+  initPoemBook();
   initPagedReading();
   initWaizhuanCollapse();
   initFinale();

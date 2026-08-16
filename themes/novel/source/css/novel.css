@@ -1685,20 +1685,26 @@ body.novel-body--home .novel-hero__bg {
 }
 
 /* ----- 诗歌阅读页 ----- */
-.novel-post--poetry .novel-post__content {
+/* 诗歌页固定为翻页书册，隐藏「滚/页」切换 */
+body.novel-body--poetry .novel-tool[data-read-flow],
+body.novel-body--poetry .novel-tools__sep:nth-of-type(1) {
+  display: none;
+}
+
+.novel-post--poetry :is(.novel-post__content, .novel-book__page) {
   text-align: center;
 }
 
-.novel-post--poetry .novel-post__content p {
+.novel-post--poetry :is(.novel-post__content, .novel-book__page) p {
   margin: 0 0 0.9em;
   text-indent: 0;
   line-height: 2;
   letter-spacing: 0.05em;
 }
 
-.novel-post--poetry .novel-post__content h2 {
-  margin: 2.4em 0 1.2em;
-  font-size: 1.3rem;
+.novel-post--poetry :is(.novel-post__content, .novel-book__page) h2 {
+  margin: 1.6em 0 1.1em;
+  font-size: 1.2rem;
   font-weight: 600;
   letter-spacing: 0.32em;
   line-height: 1.6;
@@ -1706,22 +1712,22 @@ body.novel-body--home .novel-hero__bg {
   text-indent: 0;
 }
 
-.novel-post--poetry .novel-post__content h2::after {
+.novel-post--poetry :is(.novel-post__content, .novel-book__page) h2::after {
   content: '';
   display: block;
-  width: 2.6rem;
+  width: 2.2rem;
   height: 1px;
-  margin: 0.55rem auto 0;
+  margin: 0.5rem auto 0;
   background: linear-gradient(90deg, transparent, var(--novel-accent), transparent);
 }
 
 /* “~” 分隔（由 novel.js 加类） */
-.novel-post--poetry .novel-post__content .novel-poem__break {
+.novel-post--poetry :is(.novel-post__content, .novel-book__page) .novel-poem__break {
   margin: 1.6em 0 !important;
   font-size: 0;
 }
 
-.novel-post--poetry .novel-post__content .novel-poem__break::before {
+.novel-post--poetry :is(.novel-post__content, .novel-book__page) .novel-poem__break::before {
   content: '· · ·';
   font-size: 1.05rem;
   letter-spacing: 0.55em;
@@ -1729,10 +1735,147 @@ body.novel-body--home .novel-hero__bg {
 }
 
 /* 括号注释（由 novel.js 加类） */
-.novel-post--poetry .novel-post__content .novel-poem__note {
+.novel-post--poetry :is(.novel-post__content, .novel-book__page) .novel-poem__note {
   margin: 1.7em auto 0.3em;
   font-size: 0.86em;
   color: var(--novel-muted);
   letter-spacing: 0.06em;
   max-width: 34em;
+}
+
+/* ----- 诗歌翻页书册（左右双页） ----- */
+.novel-book {
+  position: relative;
+  margin: 0 auto 1.5rem;
+  max-width: 56rem;
+}
+
+.novel-book__stage {
+  position: relative;
+  padding: 1rem 0 0.6rem;
+  touch-action: pan-y;
+}
+
+.novel-book__spread {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  gap: 1.6rem;
+  min-height: 20rem;
+}
+
+.novel-book__spread.is-next {
+  animation: novelBookInNext 0.3s ease both;
+}
+
+.novel-book__spread.is-prev {
+  animation: novelBookInPrev 0.3s ease both;
+}
+
+@keyframes novelBookInNext {
+  from {
+    opacity: 0;
+    transform: translateX(26px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes novelBookInPrev {
+  from {
+    opacity: 0;
+    transform: translateX(-26px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* 书页槽位与纸页 */
+.novel-book__slot {
+  flex: 0 0 auto;
+}
+
+.novel-book__page {
+  position: relative;
+  flex: 0 0 auto;
+  padding: 2rem 1.7rem 2.4rem;
+  border-radius: 8px 14px 14px 8px;
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.06), transparent 7%, transparent 93%, rgba(0, 0, 0, 0.06)),
+    color-mix(in srgb, var(--novel-surface) 96%, var(--novel-accent));
+  border: 1px solid var(--novel-border);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.16);
+  overflow: hidden;
+}
+
+.novel-book__slot--right .novel-book__page {
+  border-radius: 14px 8px 8px 14px;
+  background:
+    linear-gradient(270deg, rgba(0, 0, 0, 0.06), transparent 7%, transparent 93%, rgba(0, 0, 0, 0.06)),
+    color-mix(in srgb, var(--novel-surface) 96%, var(--novel-accent));
+}
+
+.novel-book__pageno {
+  position: absolute;
+  bottom: 0.7rem;
+  right: 1.1rem;
+  font-size: 0.78rem;
+  color: var(--novel-muted);
+  letter-spacing: 0.12em;
+}
+
+.novel-book__slot--right .novel-book__pageno {
+  right: auto;
+  left: 1.1rem;
+}
+
+/* 隐藏的测量容器：分页时保证布局宽度与显示一致 */
+.novel-book__measure {
+  position: absolute;
+  top: 0;
+  left: -10000px;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* 翻页控件 */
+.novel-book__controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.2rem;
+  margin-top: 0.7rem;
+}
+
+.novel-book__nav {
+  padding: 0.45rem 1.15rem;
+  border-radius: 999px;
+  border: 1px solid var(--novel-border);
+  background: var(--novel-surface);
+  color: var(--novel-text);
+  font-size: 0.9rem;
+  font-family: var(--novel-font-sans);
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.12s ease, opacity 0.15s ease;
+}
+
+.novel-book__nav:hover:not(:disabled) {
+  border-color: var(--novel-accent);
+  transform: translateY(-1px);
+}
+
+.novel-book__nav:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.novel-book__count {
+  font-size: 0.85rem;
+  color: var(--novel-muted);
+  letter-spacing: 0.06em;
+  white-space: nowrap;
 }
