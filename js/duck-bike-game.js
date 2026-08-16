@@ -56,15 +56,15 @@
   var BUMP_FIRST = 5200; // 第一条减速带距离（px，约 130 米）
   var MOVE_SPEED = 340; // 上下换道速度
   var MAX_HP = 5;
-  var INVULN = 1.0; // 被撞后的无敌时间
+  var INVULN = 1.5; // 被撞后的无敌时间（需长于最慢车辆碾过玩家的时间，避免连击）
   var KNOCK_INVULN = 0.3; // 撞飞后的短暂无敌
   var Z_WINDOW = 0.45; // Z 键有效提前量（秒）
-  var X_WINDOW = 0.3; // X 键有效按下窗口（秒）
+  var X_WINDOW = 0.6; // X 键有效按下窗口（秒，宽松些方便时机把握）
   var X_COOLDOWN = 0.5; // X 键冷却
   var CAR_DMG = 1.5; // 撞汽车扣血
   var CAR_W = 104; // 汽车碰撞箱
   var CAR_H = 48;
-  var CAR_NEAR = 122; // 贴到汽车边缘（X 键）的判定距离
+  var CAR_NEAR = 200; // 汽车附近（X 键讨食）的判定距离，宽松便于把握时机
   var FINISH_DIST = 500; // 终点距离（米）
   var TIME_LIMIT = 65; // 赶早八时限（秒）
   var CAR_SPEED = 340; // GameOver 车的车速
@@ -105,6 +105,8 @@
   var finishTime = 0; // 到达终点用时
   var verdict = ''; // win | lose
   var building = null; // { wx, arrived, t, doorY }
+  var lastHitKind = 'none';
+  var deathInfo = null;
 
   var player = {
     x: 0,
@@ -256,20 +258,21 @@
       bubble: null,
       alpha: 1,
       fly: null,
-      landT: 0
+      landT: 0,
+      noHitT: 0 // 被撞后短时间内不再对玩家造成伤害，防止慢速车碾过连击
     };
     var roll = Math.random();
-    var carChance = time > 6 ? 0.1 + diff * 0.12 : 0;
+    var carChance = time > 5 ? 0.13 + diff * 0.14 : 0;
 
     if (roll < carChance && carCount() < MAX_CAR) {
-      // 汽车：上侧车道向左，下侧车道向右
+      // 汽车：上侧车道向左，下侧车道向右；同向车比玩家慢、会被追上，因此都从右侧（前方）进入
       n.kind = 'car';
       n.color = pick(CAR_COLORS);
       n.y = Math.random() < 0.5 ? rand(34, Math.max(36, H / 2 - 28)) : rand(H / 2 + 28, H - 34);
       var bottom = n.y > H / 2;
       n.dir = bottom ? 1 : -1;
       n.ws = n.dir * player.speed * (bottom ? 0.38 : 0.5);
-      n.x = n.dir === 1 ? cameraX - 90 : cameraX + W + 90;
+      n.x = cameraX + W + 90;
       npcs.push(n);
       return;
     }
@@ -309,6 +312,7 @@
       var n = npcs[i];
       n.bob += dt * (n.state === 'angry' ? 26 : 10);
       if (n.hitFlash > 0) n.hitFlash -= dt;
+      if (n.noHitT > 0) n.noHitT -= dt;
       if (n.bubble) {
         n.bubble.t -= dt;
         if (n.bubble.t <= 0) n.bubble = null;
@@ -392,7 +396,8 @@
   }
 
   // 普通撞击
-  function hitPlayer(amount, text) {
+  function hitPlayer(amount, text, kind) {
+    lastHitKind = kind || 'unknown';
     player.hp -= amount;
     player.invulnT = INVULN;
     shakeIt(3.5, 0.22);
@@ -407,6 +412,7 @@
     for (var i = 0; i < npcs.length; i++) {
       var n = npcs[i];
       if (n.state !== 'ride' && n.state !== 'angry') continue;
+      if (n.noHitT > 0) continue;
       var sx = n.x - cameraX;
       var boxW = n.kind === 'car' ? CAR_W : BOX_W;
       var boxH = n.kind === 'car' ? CAR_H : BOX_H;
@@ -421,8 +427,10 @@
           knock(n);
           return;
         }
-        hitPlayer(CAR_DMG, '-1.5');
+        hitPlayer(CAR_DMG, '-1.5', 'car');
         n.hitFlash = 0.22;
+        n.noHitT = 2.5;
+        n.x += (sx > player.x ? 1 : -1) * 55; // 推开，避免慢速车碾过时连击
         return;
       }
       // 车手：Z 提前按下 → 撞飞且不扣血
@@ -436,7 +444,9 @@
       n.state = 'angry';
       n.bubble = { text: pick(ANGRY), t: 1.7, dur: 1.7 };
       n.hitFlash = 0.22;
-      hitPlayer(1, '-1');
+      hitPlayer(1, '-1', 'bike');
+      n.noHitT = 2.5;
+      n.x += (sx > player.x ? 1 : -1) * 55;
       return;
     }
   }
@@ -445,34 +455,38 @@
   function checkCarNear() {
     if (xCooldown > 0) return null;
     if (time - xPressedAt > X_WINDOW) return null;
+    // 就近找一辆可讨食的汽车：距离较宽，碰撞中也能按 X（讨食与碰撞判定互不干扰）
+    var best = null;
+    var bestDx = CAR_NEAR;
     for (var i = 0; i < npcs.length; i++) {
       var n = npcs[i];
       if (n.kind !== 'car' || (n.state !== 'ride' && n.state !== 'angry')) continue;
       var sx = n.x - cameraX;
       var dx = Math.abs(sx - player.x);
       var dy = Math.abs(n.y - player.y);
-      // 贴到车身边缘：未碰撞但在附近
-      if (dx < CAR_NEAR && dy < CAR_H / 2 + 30 && dx >= (CAR_W + BOX_W) / 2 - 6) {
-        return n;
+      if (dx < CAR_NEAR && dy < 90 && dx < bestDx) {
+        bestDx = dx;
+        best = n;
       }
     }
-    return null;
+    return best;
   }
 
   function throwPickup(carN) {
     var kind = Math.random() < 0.5 ? 'milk' : 'banana';
-    var dropX = carN.x - carN.dir * 34;
+    // 从汽车一侧抛到玩家正前方，几乎立刻能吃到
+    var dropX = cameraX + player.x + 46;
     pickups.push({
       wx: dropX,
-      y: clamp(carN.y + rand(-16, 16), 30, H - 30),
+      y: clamp(player.y + rand(-12, 12), 30, H - 30),
       kind: kind,
       t: 0,
       ttl: 6
     });
     xPressedAt = -999;
     xCooldown = X_COOLDOWN;
-    burst(dropX - cameraX, carN.y, 8, '#ffffff');
-    addText(dropX - cameraX, carN.y - 46, kind === 'milk' ? '牛奶！' : '香蕉！', 1, '#ffffff', 15);
+    burst(carN.x - cameraX, carN.y, 8, '#ffffff');
+    addText(carN.x - cameraX, carN.y - 46, kind === 'milk' ? '牛奶！' : '香蕉！', 1, '#ffffff', 15);
   }
 
   function collectPickups() {
@@ -563,6 +577,14 @@
 
   function startDeath() {
     mode = 'dying';
+    deathInfo = {
+      t: Math.round(time * 10) / 10,
+      hpBefore: player.hp,
+      npcs: npcs.length,
+      cars: carCount(),
+      lastHit: lastHitKind,
+      traffic: trafficEnabled
+    };
     player.invulnT = 0;
     car = {
       cx: -GO_CAR_W / 2,
@@ -797,19 +819,19 @@
     strokeLine(ctx, 0, 10, W, 10);
     strokeLine(ctx, 0, H - 10, W, H - 10);
 
-    // 中央黄虚线：正偏移 → 向左滑动（对应角色向右行驶）
+    // 中央黄虚线（负偏移 → 向右滑动）
     ctx.strokeStyle = 'rgba(240,196,60,0.8)';
     ctx.lineWidth = 3;
     ctx.setLineDash([30, 26]);
-    ctx.lineDashOffset = cameraX % 56;
+    ctx.lineDashOffset = -(cameraX % 56);
     strokeLine(ctx, 0, H / 2, W, H / 2);
     ctx.setLineDash([]);
 
-    // 车道白虚线（同样向左滑动）
+    // 车道白虚线（同样向右滑动）
     ctx.strokeStyle = 'rgba(255,255,255,0.28)';
     ctx.lineWidth = 2;
     ctx.setLineDash([16, 30]);
-    ctx.lineDashOffset = cameraX % 46;
+    ctx.lineDashOffset = -(cameraX % 46);
     strokeLine(ctx, 0, H * 0.25, W, H * 0.25);
     strokeLine(ctx, 0, H * 0.75, W, H * 0.75);
     ctx.setLineDash([]);
@@ -1411,7 +1433,7 @@
       var sx = n.x - cameraX;
       var dx = Math.abs(sx - player.x);
       var dy = Math.abs(n.y - player.y);
-      if (dx < CAR_NEAR && dy < CAR_H / 2 + 34 && dx >= (CAR_W + BOX_W) / 2 - 6) {
+      if (dx < CAR_NEAR && dy < 90) {
         ctx.globalAlpha = 0.55 + 0.35 * Math.sin(time * 10);
         ctx.fillStyle = '#ffffff';
         roundRectPath(ctx, sx - 24, n.y - CAR_H / 2 - 34, 48, 22, 9);
@@ -1650,18 +1672,19 @@
             bubble: null,
             alpha: 1,
             fly: null,
-            landT: 0
+            landT: 0,
+            noHitT: 0
           };
           npcs.push(n);
           return npcs.length;
         },
         forceCar: function (ahead) {
-          // 生成一辆汽车：与玩家同车道，方向按所在半边车道规则，贴近玩家以便快速撞上
-          ahead = ahead == null ? 260 : ahead;
+          // 按真实生成路径：汽车从右侧（前方）进入，方向按所在半边车道规则
+          ahead = ahead == null ? 400 : ahead;
           var bottom = player.y > H / 2;
           var dir = bottom ? 1 : -1;
           var n = {
-            x: cameraX + player.x + (dir === -1 ? 30 : -30),
+            x: cameraX + player.x + ahead,
             y: player.y,
             ws: dir * player.speed * (bottom ? 0.38 : 0.5),
             dir: dir,
@@ -1674,10 +1697,17 @@
             bubble: null,
             alpha: 1,
             fly: null,
-            landT: 0
+            landT: 0,
+            noHitT: 0
           };
           npcs.push(n);
           return npcs.length;
+        },
+        carSx: function () {
+          for (var i = 0; i < npcs.length; i++) {
+            if (npcs[i].kind === 'car') return Math.round(npcs[i].x - cameraX);
+          }
+          return null;
         },
         forceCarAdjacent: function () {
           // 把一辆汽车放到玩家右前方 95px（贴边未碰撞）
@@ -1697,7 +1727,8 @@
             bubble: null,
             alpha: 1,
             fly: null,
-            landT: 0
+            landT: 0,
+            noHitT: 0
           };
           npcs.push(n);
           return npcs.length;
@@ -1745,7 +1776,13 @@
             boostT: player.boostT,
             bumpT: player.bumpT,
             finishTime: finishTime,
-            verdict: verdict
+            verdict: verdict,
+            traffic: trafficEnabled,
+            lastHit: lastHitKind,
+            deathInfo: deathInfo,
+            npcsInfo: npcs.map(function (n) {
+              return { k: n.kind, sx: Math.round(n.x - cameraX), y: Math.round(n.y), st: n.state };
+            })
           };
         }
       };
