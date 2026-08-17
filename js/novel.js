@@ -266,6 +266,7 @@
       var p = document.createElement('div');
       p.className = 'novel-book__page';
       p.style.width = state.pw + 'px';
+      p.style.height = state.ph + 'px'; // 所有书页等高
       var f = document.createElement('span');
       f.className = 'novel-book__pageno';
       p.appendChild(f);
@@ -306,12 +307,17 @@
       state.ph = pageHeight();
       var page = null;
       var acc = 0;
+      var contentBudget = state.ph; // 页内可排版高度（页高 - 上下内边距）
       kids.forEach(function (kid) {
         var isH2 = kid.tagName === 'H2'; // 每首新诗（H2 标题）另起一页
         if (!page) {
           page = makePage();
           state.pages.push(page);
           measure.appendChild(page);
+          var csP = window.getComputedStyle(page);
+          contentBudget =
+            state.ph -
+            ((parseFloat(csP.paddingTop) || 0) + (parseFloat(csP.paddingBottom) || 0));
         }
         // 追加前判断：页内除页码外是否已有内容（footer 是 children[0]）
         var hasContent = page.children.length > 1;
@@ -319,7 +325,7 @@
         var cs = window.getComputedStyle(kid);
         var h =
           kid.offsetHeight + (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0);
-        if (hasContent && (acc + h > state.ph + 1 || isH2)) {
+        if (hasContent && (acc + h > contentBudget + 1 || isH2)) {
           page.removeChild(kid);
           page = makePage();
           state.pages.push(page);
