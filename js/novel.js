@@ -253,9 +253,9 @@
 
     function pageWidth() {
       if (window.innerWidth < 640) {
-        return clamp(Math.min(26 * 16, window.innerWidth - 48), 240, 26 * 16);
+        return clamp(Math.min(28 * 16, window.innerWidth - 48), 240, 28 * 16);
       }
-      return clamp((Math.min(56 * 16, window.innerWidth - 32) - 26) / 2, 300, 24 * 16);
+      return clamp((Math.min(56 * 16, window.innerWidth - 32) - 26) / 2, 320, 26 * 16);
     }
 
     function pageHeight() {
@@ -307,16 +307,19 @@
       var page = null;
       var acc = 0;
       kids.forEach(function (kid) {
+        var isH2 = kid.tagName === 'H2'; // 每首新诗（H2 标题）另起一页
         if (!page) {
           page = makePage();
           state.pages.push(page);
           measure.appendChild(page);
         }
+        // 追加前判断：页内除页码外是否已有内容（footer 是 children[0]）
+        var hasContent = page.children.length > 1;
         page.appendChild(kid);
         var cs = window.getComputedStyle(kid);
         var h =
           kid.offsetHeight + (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0);
-        if (acc + h > state.ph + 1 && page.childNodes.length > 1) {
+        if (hasContent && (acc + h > state.ph + 1 || isH2)) {
           page.removeChild(kid);
           page = makePage();
           state.pages.push(page);
@@ -360,17 +363,96 @@
       updateProgress();
     }
 
+    var turning = false;
+
     function turn(dir) {
       var totalSpreads = Math.ceil(state.pages.length / state.per);
       var ns = clamp(state.spread + dir, 0, totalSpreads - 1);
-      if (ns === state.spread) return;
-      state.spread = ns;
-      if (!prefersReduced) {
-        spread.classList.remove('is-next', 'is-prev');
-        void spread.offsetWidth;
-        spread.classList.add(dir > 0 ? 'is-next' : 'is-prev');
+      if (ns === state.spread || turning) return;
+      if (prefersReduced || !state.pages.length) {
+        state.spread = ns;
+        render();
+        return;
       }
-      render();
+      flipTo(dir, ns);
+    }
+
+    /* 真实翻页：右页绕书脊向左翻 / 左页绕书脊向右翻，背面/底下是新的一页 */
+    function flipTo(dir, ns) {
+      var i0 = state.spread * state.per;
+      var per = state.per;
+      var pages = state.pages;
+
+      var fromIdx = dir > 0 ? (per === 2 ? i0 + 1 : i0) : i0;
+      var backIdx = dir > 0 ? (per === 2 ? i0 + 2 : i0 + 1) : i0 - 1;
+      var coveredSlot = per === 1 ? left : dir > 0 ? right : left;
+      var revealedSlot = per === 1 ? left : dir > 0 ? left : right;
+      var origin = per === 1 ? (dir > 0 ? 'left center' : 'right center') : dir > 0 ? 'left center' : 'right center';
+      var targetAngle = dir > 0 ? -180 : 180;
+
+      // 先测量目标槽尺寸（翻页元素按当前页大小定位）
+      var sr = stage.getBoundingClientRect();
+      var tr = coveredSlot.getBoundingClientRect();
+
+      // 底下先铺好新页（被翻页盖住，翻到一半时露出）
+      if (dir > 0) {
+        if (per === 2 && pages[i0 + 3]) {
+          right.innerHTML = '';
+          right.appendChild(pages[i0 + 3]);
+        }
+      } else {
+        if (per === 2 && pages[i0 - 2]) {
+          left.innerHTML = '';
+          left.appendChild(pages[i0 - 2]);
+        }
+      }
+
+      var flip = document.createElement('div');
+      flip.className = 'novel-book__flip';
+      var front = document.createElement('div');
+      front.className = 'novel-book__flip-face novel-book__flip-face--front';
+      var back = document.createElement('div');
+      back.className = 'novel-book__flip-face novel-book__flip-face--back';
+      flip.appendChild(front);
+      flip.appendChild(back);
+      stage.appendChild(flip);
+
+      flip.style.left = tr.left - sr.left + 'px';
+      flip.style.top = tr.top - sr.top + 'px';
+      flip.style.width = tr.width + 'px';
+      flip.style.height = tr.height + 'px';
+      flip.style.transformOrigin = origin;
+      flip.style.transform = 'rotateY(0deg)';
+
+      var fromPage = pages[fromIdx];
+      var backPage = pages[backIdx];
+      if (fromPage) front.appendChild(fromPage);
+      if (backPage) back.appendChild(backPage);
+
+      turning = true;
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          flip.style.transition = 'transform 0.7s cubic-bezier(0.25, 0.65, 0.35, 1)';
+          flip.style.transform = 'rotateY(' + targetAngle + 'deg)';
+        });
+      });
+
+      var done = false;
+      function finish() {
+        if (done) return;
+        done = true;
+        var target = revealedSlot;
+        target.innerHTML = '';
+        if (backPage && backPage.parentNode) target.appendChild(backPage);
+        flip.remove();
+        turning = false;
+        state.spread = ns;
+        render();
+      }
+      flip.addEventListener('transitionend', function (e) {
+        if (e.propertyName === 'transform') finish();
+      });
+      setTimeout(finish, 950);
     }
 
     function resizeBook() {

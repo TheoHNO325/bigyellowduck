@@ -1691,7 +1691,28 @@ body.novel-body--poetry .novel-tools__sep:nth-of-type(1) {
   display: none;
 }
 
+/* 版心：诗歌书册需要更宽的版面；鸭版面时背景白框同样加宽 */
+body.novel-body--poetry .novel-wrap,
+html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-wrap {
+  max-width: 62rem;
+}
+
+body.novel-body--poetry .novel-main,
+html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-main {
+  max-width: 58rem;
+}
+
+/* 宽版心下，普通正文仍保持舒适的阅读宽度 */
+.novel-main .novel-post__content {
+  max-width: var(--novel-max-width);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* 诗歌用华文中宋（更文艺的衬线字体） */
 .novel-post--poetry :is(.novel-post__content, .novel-book__page) {
+  font-family: "STZhongsong", "华文中宋", "Songti SC", "Noto Serif SC", "Source Han Serif SC",
+    "SimSun", serif;
   text-align: center;
 }
 
@@ -1754,6 +1775,7 @@ body.novel-body--poetry .novel-tools__sep:nth-of-type(1) {
   position: relative;
   padding: 1rem 0 0.6rem;
   touch-action: pan-y;
+  perspective: 2400px;
 }
 
 .novel-book__spread {
@@ -1764,34 +1786,25 @@ body.novel-body--poetry .novel-tools__sep:nth-of-type(1) {
   min-height: 20rem;
 }
 
-.novel-book__spread.is-next {
-  animation: novelBookInNext 0.3s ease both;
+/* 真实翻页：右侧页绕书脊向左翻 / 左侧页绕书脊向右翻 */
+.novel-book__flip {
+  position: absolute;
+  z-index: 5;
+  transform-style: preserve-3d;
+  pointer-events: none;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
 }
 
-.novel-book__spread.is-prev {
-  animation: novelBookInPrev 0.3s ease both;
+.novel-book__flip-face {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 
-@keyframes novelBookInNext {
-  from {
-    opacity: 0;
-    transform: translateX(26px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-@keyframes novelBookInPrev {
-  from {
-    opacity: 0;
-    transform: translateX(-26px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
+.novel-book__flip-face--back {
+  transform: rotateY(180deg);
 }
 
 /* 书页槽位与纸页 */
