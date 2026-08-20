@@ -1998,6 +1998,18 @@ html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-main {
   color: var(--novel-muted);
 }
 
+/* 专辑内页式 liner note */
+.novel-poem-album__excerpt {
+  margin: 1rem auto 0;
+  max-width: 30em;
+  font-family: var(--novel-font-serif);
+  font-size: 0.95rem;
+  font-style: italic;
+  color: var(--novel-muted);
+  letter-spacing: 0.05em;
+  line-height: 1.8;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .novel-poem-album__cover,
   .novel-poem-album__cover::before {
