@@ -1906,7 +1906,7 @@ html[data-duck-bg="1"] body.novel-body:not(.novel-body--home) .novel-main {
 .novel-poem-album__cover {
   position: relative;
   display: block;
-  width: min(19rem, 72vw);
+  width: min(15rem, 60vw);
   aspect-ratio: 1;
   border-radius: 16px;
   overflow: hidden;
