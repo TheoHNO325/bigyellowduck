@@ -1,7 +1,14 @@
 <!DOCTYPE html>
 <html lang="<%= config.language || 'zh-CN' %>">
 <%- partial('_partial/head') %>
-<body class="novel-body<% if (page.layout === 'home') { %> novel-body--home<% } %>">
+<% 
+  var isPoetryPage = false;
+  if (page.tags && page.tags.length) {
+    page.tags.each(function (t) { if (t.name === (theme.poetry_tag || '诗歌')) isPoetryPage = true; });
+  }
+  var pageCover = (page.cover && String(page.cover).trim()) || '';
+%>
+<body class="novel-body<% if (page.layout === 'home') { %> novel-body--home<% } %><% if (isPoetryPage) { %> novel-body--poetry<% } %>"<% if (pageCover) { %> style="--novel-duck-bg-image:url('<%- url_for(pageCover) %>')"<% } %>>
   <% if (page.layout !== 'home') { %>
   <div class="novel-read-progress" id="read-progress" aria-hidden="true"></div>
   <%- partial('_partial/header') %>

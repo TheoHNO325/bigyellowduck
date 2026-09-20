@@ -6,7 +6,7 @@
     <% } %>
   </header>
 <% 
-  var tagName = theme.waizhuan_tag || '外传';
+  var tagName = theme.waizhuan_tag || '垃圾';
   var coll = site.tags.findOne({name: tagName});
   var list = [];
   if (coll && coll.length) {
@@ -25,7 +25,7 @@
   });
 %>
   <% if (!list.length) { %>
-  <p class="novel-waizhuan-empty">暂未有外传条目。欢迎按仓库说明投稿。</p>
+  <p class="novel-waizhuan-empty">暂未有垃圾条目。欢迎按仓库说明投稿。</p>
   <% } %>
   <% sectionOrder.forEach(function (sec, si) { var posts = groups[sec]; %>
   <section class="novel-waizhuan-board" aria-labelledby="waizhuan-board-<%= si %>">

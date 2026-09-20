@@ -25,6 +25,21 @@
     </h2>
     <div class="novel-waizhuan-board__grid" id="poetry-board-panel">
       <% list.forEach(function (p) { %>
+      <% if (p.cover) { %>
+      <article class="novel-poem-album">
+        <a class="novel-poem-album__cover" href="<%- url_for(p.path) %>" aria-label="<%= p.title %>">
+          <img class="novel-poem-album__img" src="<%- url_for(p.cover) %>" alt="<%= p.title %>" loading="lazy">
+        </a>
+        <h3 class="novel-poem-album__title"><a href="<%- url_for(p.path) %>"><%= p.title %></a></h3>
+        <% if (p.author_display) { %>
+        <p class="novel-poem-album__author">文 / <%= p.author_display %></p>
+        <% } %>
+        <time class="novel-card__time" datetime="<%= post_date_literal(p) %>"><%= post_date_literal(p) %></time>
+        <% if (p.excerpt) { %>
+        <p class="novel-poem-album__excerpt"><%- strip_html(p.excerpt) %></p>
+        <% } %>
+      </article>
+      <% } else { %>
       <article class="novel-waizhuan-card novel-card">
         <h3 class="novel-waizhuan-card__title">
           <a href="<%- url_for(p.path) %>"><%= p.title %></a>
@@ -37,6 +52,7 @@
         <p class="novel-waizhuan-card__excerpt"><%- strip_html(p.excerpt).substring(0, 120) %><%= strip_html(p.excerpt).length > 120 ? '…' : '' %></p>
         <% } %>
       </article>
+      <% } %>
       <% }); %>
     </div>
   </section>

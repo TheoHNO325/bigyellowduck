@@ -1,29 +1,29 @@
-# 大黄鸭外传 · 投稿与协作
+# 大黄鸭垃圾 · 投稿与协作
 
-本站外传列表页路径：`/waizhuan/`（源码为 `source/waizhuan/index.md`）。合作者只需在本仓库中**新增一篇 Hexo 文章（Markdown）并提交合并**，无需改主题代码。
+本站「垃圾」栏（原「外传」）列表页路径：`/waizhuan/`（源码为 `source/waizhuan/index.md`）。合作者只需在本仓库中**新增一篇 Hexo 文章（Markdown）并提交合并**，无需改主题代码。
 
 ## 写作约定
 
-1. **标签**：文章 front matter 的 `tags` 中**必须包含 `外传`**，且**不要**加 `大黄鸭`（否则该文会进入正传章节目录）。
+1. **标签**：文章 front matter 的 `tags` 中**必须包含 `垃圾`**，且**不要**加 `大黄鸭`（否则该文会进入正传章节目录）。
 2. **板块**：在 front matter 中设置 `waizhuan_section`，例如 `日常向`、`严肃向`。**相同字符串**的稿件会在列表页归为同一板块；不写则归入「未分板块」。
 3. **署名**：可选 `author_display: 笔名`，会显示在列表卡片与文末。
-4. **正文**：在 Markdown 中正常撰写即可。若希望外传列表卡片显示摘要，可在文中插入 `<!-- more -->`，其上方内容为摘要；也可在 front matter 中设置 `excerpt:`。
-5. **文件名（推荐）**：外传稿请使用 `0x01-你的slug.md`、`0x02-…` 形式（两位序号顺排，可与 Hexo 默认生成的日期前缀脱钩）；**勿**在文件名里混用正传章节所用的 `NN-dahuangya` 模式。
-6. **文件位置**：稿件必须放在 `source/_posts/` 下（Hexo 的「文章」才能带 `tags` 并被 `/waizhuan/` 聚合）。**不要**把成稿只放在 `source/waizhuan/`（那里只放列表页 `index.md`）；若希望网址也出现在 `/waizhuan/…` 下，可在 front matter 里加一行 `permalink: waizhuan/0xNN-your-slug/`。
+4. **正文**：在 Markdown 中正常撰写即可。若希望列表卡片显示摘要，可在文中插入 `<!-- more -->`，其上方内容为摘要；也可在 front matter 中设置 `excerpt:`。
+5. **文件名（推荐）**：稿件请使用 `NN-你的slug.md` 形式（两位序号顺排），并放在 `source/_posts/waizhuan/` 文件夹下，与小说、诗歌分开存放。
+6. **文件位置**：稿件必须放在 `source/_posts/waizhuan/` 下（Hexo 的「文章」才能带 `tags` 并被 `/waizhuan/` 聚合）。**不要**把成稿只放在 `source/waizhuan/`（那里只放列表页 `index.md`）；若希望网址出现在 `/waizhuan/…` 下，可在 front matter 里加一行 `permalink: waizhuan/0xNN-your-slug/`（不改文件名也不影响网址）。
 
 ## 用脚手架新建（推荐）
 
 在站点根目录（含 `_config.yml` 的 `hexo-blog` 目录）执行：
 
 ```bash
-npx hexo new waizhuan "你的外传标题"
+npx hexo new waizhuan "你的垃圾标题"
 ```
 
-会在 `source/_posts/` 下生成带默认 front matter 的文件，按需修改 `waizhuan_section`、`author_display` 与正文后提交。若生成的文件名带日期前缀，可改为 `0xNN-简称.md` 以与站内涵例一致。
+会在 `source/_posts/` 下生成带默认 front matter 的文件，将其移动到 `source/_posts/waizhuan/` 并按需修改 `waizhuan_section`、`author_display` 与正文后提交。若生成的文件名带日期前缀，可改为 `NN-简称.md` 以与站内涵例一致。
 
 ## 或手动复制
 
-复制任意一篇 `_posts` 下的 `.md`，修改 `title`、`date`、`tags`（保留 `外传`）、`waizhuan_section` 等字段即可。
+复制任意一篇 `_posts/waizhuan/` 下的 `.md`，修改 `title`、`date`、`tags`（保留 `垃圾`）、`waizhuan_section` 等字段即可。
 
 ## 提交与发布
 

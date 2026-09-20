@@ -2,7 +2,7 @@
 
 const pagination = require('hexo-pagination');
 
-/* 覆盖 hexo-generator-index：连载目录 /read/ 只收录主题 series_tag（如「大黄鸭」），外传等不占用分页。 */
+/* 覆盖 hexo-generator-index：连载目录 /read/ 只收录主题 series_tag（如「大黄鸭」），垃圾/诗歌等不占用分页。 */
 hexo.extend.generator.register('index', function (locals) {
   const config = this.config;
   const ig = config.index_generator || {};

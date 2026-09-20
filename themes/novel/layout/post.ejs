@@ -1,5 +1,5 @@
 <% 
-  var waizhuanTag = theme.waizhuan_tag || '外传';
+  var waizhuanTag = theme.waizhuan_tag || '垃圾';
   var poetryTag = theme.poetry_tag || '诗歌';
   var isWaizhuan = false;
   var isPoetry = false;
@@ -29,7 +29,7 @@
   }
   var prevCh = chapterIdx > 0 ? chapters[chapterIdx - 1] : null;
   var nextCh = chapterIdx >= 0 && chapterIdx < chapters.length - 1 ? chapters[chapterIdx + 1] : null;
-  var waizhuanSeriesLabel = theme.waizhuan_series_title || '大黄鸭 · 外传';
+  var waizhuanSeriesLabel = theme.waizhuan_series_title || '大黄鸭 · 垃圾';
   var poetrySeriesLabel = theme.poetry_series_title || '大黄鸭 · 诗歌';
 %>
 <% if (isWaizhuan) { %>
@@ -48,8 +48,8 @@
     </p>
   </header>
   <div class="novel-post__content" itemprop="articleBody"><%- page.content %></div>
-  <nav class="novel-chapter-bar novel-chapter-bar--waizhuan" aria-label="外传导航">
-    <a class="novel-chapter-bar__toc" href="<%- url_for(waizhuanListPath) %>">← 返回外传列表</a>
+  <nav class="novel-chapter-bar novel-chapter-bar--waizhuan" aria-label="垃圾导航">
+    <a class="novel-chapter-bar__toc" href="<%- url_for(waizhuanListPath) %>">← 返回垃圾列表</a>
   </nav>
   <%- partial('_partial/giscus') %>
 </article>

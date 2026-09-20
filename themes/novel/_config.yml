@@ -41,12 +41,12 @@ footer_line: ''
 # 最后一章滚到底时的彩蛋短句（HTML 不可用，换行可用 \n 或在 md 里改主题配置多行 YAML）
 finale_line: '《当大黄鸭被发现在四大发明广场》至此告一段落。感谢你的阅读。'
 
-# 外传：聚合页路径与标签名（文章须带此标签且勿带 series_tag，以免进入正传目录）
-waizhuan_tag: '外传'
+# 垃圾（原「外传」）：聚合页路径与标签名（文章须带此标签且勿带 series_tag，以免进入正传目录）
+waizhuan_tag: '垃圾'
 waizhuan_url: /waizhuan/
-waizhuan_series_title: '大黄鸭 · 外传'
+waizhuan_series_title: '大黄鸭 · 垃圾'
 
-# 诗歌：与外传平齐的独立板块（聚合页路径与标签名，文章须带此标签）
+# 诗歌：与垃圾栏平齐的独立板块（聚合页路径与标签名，文章须带此标签）
 poetry_tag: '诗歌'
 poetry_url: /poetry/
 poetry_series_title: '大黄鸭 · 诗歌'
@@ -55,5 +55,5 @@ poetry_series_title: '大黄鸭 · 诗歌'
 menu:
   封面: /
   目录: /read/
-  外传: /waizhuan/
+  垃圾: /waizhuan/
   诗歌: /poetry/
